@@ -1,6 +1,9 @@
-type prefix = "song"
+type prefix = "song" | "auth"
 type route =
-    "getMySongs"
+    "login"
+    | "register"
+    | "userData"
+    | "getMySongs"
     | "addSong"
     | "getAllSongs"
     | "getIndex"

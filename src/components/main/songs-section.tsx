@@ -3,7 +3,7 @@
 import { Search } from 'lucide-react';
 
 //@ts-ignore
-import { getAllSongs, getMySongs } from '@/api/api-services';
+import { getAllSongs, getMySongs, getUserData } from '@/api/api-services';
 import { TABProps, TABS } from '@/constants/tab-data';
 import { SongSchema } from '@/models/song';
 import { useSongs } from '@/store/useSongs';
@@ -34,6 +34,7 @@ export function SongsSection({ defaultLayout = [20, 32, 48] }: SongProps) {
             currentTab: tab,
         });
     };
+    const token = localStorage.getItem('token');
 
     const results = useQueries({
         queries: [
@@ -45,6 +46,11 @@ export function SongsSection({ defaultLayout = [20, 32, 48] }: SongProps) {
                 queryKey: ['my-songs'],
                 queryFn: getMySongs,
                 enabled: songStore.currentTab.value === 'my-songs',
+            },
+            {
+                queryKey: ['user'],
+                queryFn: getUserData,
+                enabled: token !== null,
             },
         ],
     });

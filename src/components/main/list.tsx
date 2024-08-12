@@ -13,7 +13,7 @@ interface ListProps {
 }
 
 export function List({ items }: ListProps) {
-    const [mail, setMail] = useSongs();
+    const [song, setSongStore] = useSongs();
 
     return (
         <ScrollArea className="h-screen">
@@ -24,11 +24,11 @@ export function List({ items }: ListProps) {
                             key={item._id}
                             className={cn(
                                 'flex flex-col items-start gap-2 rounded-lg border p-3 text-left text-sm transition-all hover:bg-accent',
-                                mail.selected === item._id && 'bg-muted'
+                                song.selected === item._id && 'bg-muted'
                             )}
                             onClick={() =>
-                                setMail({
-                                    ...mail,
+                                setSongStore({
+                                    ...song,
                                     selected: item._id,
                                 })
                             }
@@ -46,7 +46,7 @@ export function List({ items }: ListProps) {
                                     <div
                                         className={cn(
                                             'ml-auto text-xs',
-                                            mail.selected === item._id
+                                            song.selected === item._id
                                                 ? 'text-foreground'
                                                 : 'text-muted-foreground'
                                         )}
@@ -63,23 +63,18 @@ export function List({ items }: ListProps) {
                                     {item.keyboardModal}
                                 </div>
                             </div>
-                            <div className="line-clamp-2 text-xs text-muted-foreground">
-                                {item.lyrics.substring(0, 300)}
+
+                            <div className="flex items-center gap-2">
+                                <Badge variant={'default'}>{item.beat}</Badge>
+                                <Badge variant={'default'}>
+                                    {item.language}
+                                </Badge>
+                                <Badge variant={'default'}>
+                                    T-{item.tempo}
+                                </Badge>
+                                <Badge variant={'default'}>{item.style}</Badge>
+                                <Badge variant={'default'}>{item.scale}</Badge>
                             </div>
-                            {/* {item.labels.length ? (
-                                <div className="flex items-center gap-2">
-                                    {item.labels.map((label) => (
-                                        <Badge
-                                            key={label}
-                                            variant={getBadgeVariantFromLabel(
-                                                label
-                                            )}
-                                        >
-                                            {label}
-                                        </Badge>
-                                    ))}
-                                </div>
-                            ) : null} */}
                         </button>
                     ))
                 ) : (

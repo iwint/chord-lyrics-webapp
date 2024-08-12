@@ -26,8 +26,10 @@ export const POST = async (endpoint: ENDPOINT, payload: any) => {
     try {
         const response = await fetch(`${BASE_URL}/${endpoint}`, {
             headers: {
-                Authorization: `Bearer ${token}`
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
             },
+            method: "POST",
             body: JSON.stringify(payload)
         });
         if (response.status === 200 || response.status === 201) {
@@ -46,8 +48,10 @@ export const PUT = async (endpoint: ENDPOINT, payload?: any) => {
     try {
         const response = await fetch(`${BASE_URL}/${endpoint}`, {
             headers: {
-                Authorization: `Bearer ${token}`
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
             },
+            method: "PUT",
             body: JSON.stringify(payload)
         });
         if (response.status === 200 || response.status === 201) {
