@@ -1,11 +1,12 @@
 'use client';
 
-import { HeartIcon, LogOut } from 'lucide-react';
+import { HeartIcon, LogIn, LogOut } from 'lucide-react';
 
 import { format } from 'date-fns';
 
 import { getAllSongs, updateSong } from '@/api/api-services';
 import { SongSchema } from '@/models/song';
+import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -18,13 +19,15 @@ interface SongDisplayProps {
     song: SongSchema | null;
 }
 
-export function MailDisplay({ song }: SongDisplayProps) {
+export function SongDisplay({ song }: SongDisplayProps) {
     const today = new Date();
     const router = useRouter();
+    const token = Cookies.get('token');
 
     const handleLogout = () => {
-        localStorage.clear();
-        router.push('/');
+        Cookies.remove('token');
+        Cookies.remove('userId');
+        router.refresh();
     };
 
     const handleAddToFavourites = async () => {
@@ -33,6 +36,10 @@ export function MailDisplay({ song }: SongDisplayProps) {
             isPinned: !song?.isPinned,
         };
         await updateSong(song?._id as any, payload).then(() => getAllSongs());
+    };
+
+    const handleLogin = () => {
+        router.push('/login');
     };
 
     return (
@@ -64,16 +71,29 @@ export function MailDisplay({ song }: SongDisplayProps) {
                 <div className="ml-auto flex items-center gap-2"></div>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button
-                            onClick={handleLogout}
-                            variant="destructive"
-                            size="icon"
-                        >
-                            <LogOut className="h-4 w-4" />
-                            <span className="sr-only">Log out</span>
-                        </Button>
+                        {token ? (
+                            <Button
+                                onClick={handleLogout}
+                                variant="destructive"
+                                size="icon"
+                            >
+                                <LogOut className="h-4 w-4" />
+                                <span className="sr-only">Log out</span>
+                            </Button>
+                        ) : (
+                            <Button
+                                onClick={handleLogin}
+                                variant="ghost"
+                                size="icon"
+                            >
+                                <LogIn className="h-4 w-4" />
+                                <span className="sr-only">Log in</span>
+                            </Button>
+                        )}
                     </TooltipTrigger>
-                    <TooltipContent>Log out</TooltipContent>
+                    <TooltipContent>
+                        {token ? 'Log out' : 'Log in'}
+                    </TooltipContent>
                 </Tooltip>
             </div>
             <Separator />
@@ -121,7 +141,10 @@ export function MailDisplay({ song }: SongDisplayProps) {
                     </ScrollArea>
                 </div>
             ) : (
-                <EmptyPlaceholder />
+                <EmptyPlaceholder
+                    title="No song selected"
+                    description="Please select a song to display"
+                />
             )}
         </div>
     );

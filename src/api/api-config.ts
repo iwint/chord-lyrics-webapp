@@ -1,8 +1,12 @@
 import { BASE_URL } from "@/constants/definitions";
+import Cookies from 'js-cookie';
 import { ENDPOINT } from "./helper";
 
+
+const token = Cookies.get('token')
+
 export const GET = async (endpoint: ENDPOINT) => {
-    const token = await localStorage.getItem('token')
+
     try {
         const response = await fetch(`${BASE_URL}/${endpoint}`, {
             headers: {
@@ -22,7 +26,7 @@ export const GET = async (endpoint: ENDPOINT) => {
 
 
 export const POST = async (endpoint: ENDPOINT, payload: any) => {
-    const token = await localStorage.getItem('token')
+
     try {
         const response = await fetch(`${BASE_URL}/${endpoint}`, {
             headers: {
@@ -44,7 +48,7 @@ export const POST = async (endpoint: ENDPOINT, payload: any) => {
 }
 
 export const PUT = async (endpoint: ENDPOINT, payload?: any) => {
-    const token = await localStorage.getItem('token')
+
     try {
         const response = await fetch(`${BASE_URL}/${endpoint}`, {
             headers: {

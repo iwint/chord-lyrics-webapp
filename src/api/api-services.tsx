@@ -1,8 +1,9 @@
 'use client';
 
 import { GET, POST, PUT } from '@/api/api-config';
+import Cookies from 'js-cookie';
 
-const userId = localStorage.getItem('userId');
+const userId = Cookies.get('userId');
 
 export const getAllSongs = async () => {
     const response = await GET('song/getAllSongs');
@@ -11,7 +12,7 @@ export const getAllSongs = async () => {
 
 export const getUserData = async () => {
     const response = await GET('auth/userData');
-    await localStorage.setItem('userId', response?.data?._id);
+    await Cookies.set('userId', response?.data?._id);
     return response.data;
 };
 
@@ -72,5 +73,5 @@ export const updateSong = async (songId: string, payload: any) => {
 
 export const addSong = async (payload: any) => {
     const response = await POST(`song/addSong?userId=${userId}`, payload);
-    return response.data;
+    return response;
 };

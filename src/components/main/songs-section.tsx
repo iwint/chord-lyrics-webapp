@@ -5,9 +5,13 @@ import { Search } from 'lucide-react';
 //@ts-ignore
 import { getAllSongs, getMySongs, getUserData } from '@/api/api-services';
 import { TABProps, TABS } from '@/constants/tab-data';
+import useAddSongModal from '@/hooks/use-add-modal';
 import { SongSchema } from '@/models/song';
 import { useSongs } from '@/store/useSongs';
 import { useQueries } from '@tanstack/react-query';
+import Cookies from 'js-cookie';
+import Modal from '../common/modal';
+import AddSongForm from '../forms/add-song-form';
 import { Input } from '../ui/input';
 import {
     ResizableHandle,
@@ -18,7 +22,7 @@ import { Separator } from '../ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { TooltipProvider } from '../ui/tooltip';
 import { List } from './list';
-import { MailDisplay } from './main-display';
+import { SongDisplay } from './song-display';
 
 interface SongProps {
     defaultLayout: number[] | undefined;
@@ -34,7 +38,7 @@ export function SongsSection({ defaultLayout = [20, 32, 48] }: SongProps) {
             currentTab: tab,
         });
     };
-    const token = localStorage.getItem('token');
+    const token = Cookies.get('token');
 
     const results = useQueries({
         queries: [
@@ -60,8 +64,17 @@ export function SongsSection({ defaultLayout = [20, 32, 48] }: SongProps) {
         'my-songs': results[1].data,
     };
 
+    const { isOpen, onClose } = useAddSongModal();
+
     return (
         <TooltipProvider delayDuration={0}>
+            <Modal
+                close={onClose}
+                open={isOpen}
+                title="Add song"
+                description="Fill the form below to add your song."
+                children={<AddSongForm />}
+            />
             <ResizablePanelGroup
                 direction="horizontal"
                 onLayout={(sizes: number[]) => {
@@ -126,7 +139,7 @@ export function SongsSection({ defaultLayout = [20, 32, 48] }: SongProps) {
                 </ResizablePanel>
                 <ResizableHandle withHandle />
                 <ResizablePanel defaultSize={defaultLayout[2]} minSize={30}>
-                    <MailDisplay
+                    <SongDisplay
                         song={
                             songs[
                                 (songStore.currentTab.value as 'all') ||

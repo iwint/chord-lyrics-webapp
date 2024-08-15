@@ -1,9 +1,9 @@
 'use client';
 
+import { POST } from '@/api/api-config';
 import { Icons } from '@/assets/icons/spinner-icon';
 import { cn } from '@/lib/utils';
-
-import { POST } from '@/api/api-config';
+import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 import { Button } from '../ui/button';
@@ -45,8 +45,8 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
                 });
                 togglePage();
             } else if (response.token) {
-                await localStorage.setItem('token', response?.token);
-                router.push('/main');
+                await Cookies.set('token', response?.token);
+                router.replace('/');
             } else {
                 toast({
                     variant: 'destructive',

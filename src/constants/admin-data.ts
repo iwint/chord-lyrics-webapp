@@ -1,0 +1,1 @@
+const ADMIN_ENABLED_TABS = ['']

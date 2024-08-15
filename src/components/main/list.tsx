@@ -78,7 +78,7 @@ export function List({ items }: ListProps) {
                         </button>
                     ))
                 ) : (
-                    <EmptyPlaceholder />
+                    <EmptyPlaceholder isActionView />
                 )}
             </div>
         </ScrollArea>
