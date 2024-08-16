@@ -76,14 +76,19 @@ export function SongDisplay({ song }: SongDisplayProps) {
                                 size="icon"
                                 disabled={!song}
                             >
-                                {song?.isPinned ? (
-                                    <HeartIcon fill="red" className="h-5 w-5" />
-                                ) : (
-                                    <HeartIcon className="h-4 w-4" />
-                                )}
-                                <span className="sr-only">
-                                    Add to favourites
-                                </span>
+                                <>
+                                    {song?.isPinned ? (
+                                        <HeartIcon
+                                            fill="red"
+                                            className="h-5 w-5"
+                                        />
+                                    ) : (
+                                        <HeartIcon className="h-4 w-4" />
+                                    )}
+                                    <span className="sr-only">
+                                        Add to favourites
+                                    </span>
+                                </>
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent> Add to favourites</TooltipContent>
