@@ -74,8 +74,9 @@ export function SongsSection({ defaultLayout = [20, 32, 48] }: SongProps) {
                 open={isOpen}
                 title="Add song"
                 description="Fill the form below to add your song."
-                children={<AddSongForm />}
-            />
+            >
+                <AddSongForm />
+            </Modal>
             <ResizablePanelGroup
                 direction="horizontal"
                 onLayout={(sizes: number[]) => {

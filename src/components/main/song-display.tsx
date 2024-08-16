@@ -94,7 +94,7 @@ export function SongDisplay({ song }: SongDisplayProps) {
                         <TooltipContent> Add to favourites</TooltipContent>
                     </Tooltip>
                 </div>
-                <div className="ml-auto flex items-center gap-2"></div>
+                <div className="ml-auto flex items-center gap-2" />
                 <Tooltip>
                     <TooltipTrigger asChild>
                         {token ? (
