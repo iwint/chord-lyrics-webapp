@@ -12,10 +12,7 @@ export const TABS: TABProps[] = [
         label: "My songs",
         value: "my-songs"
     },
-    // {
-    //     label: "Keyboard",
-    //     value: "keyboard"
-    // },
+
     {
         label: "Favourites",
         value: "favourites"

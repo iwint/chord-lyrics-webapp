@@ -39,6 +39,7 @@ export function SongsSection({ defaultLayout = [20, 32, 48] }: SongProps) {
         });
     };
     const token = Cookies.get('token');
+    const userID = Cookies.get('userId');
 
     const results = useQueries({
         queries: [
@@ -54,7 +55,7 @@ export function SongsSection({ defaultLayout = [20, 32, 48] }: SongProps) {
             {
                 queryKey: ['user'],
                 queryFn: getUserData,
-                enabled: token !== null,
+                enabled: !!token || !!userID,
             },
         ],
     });

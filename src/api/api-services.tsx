@@ -75,3 +75,14 @@ export const addSong = async (payload: any) => {
     const response = await POST(`song/addSong?userId=${userId}`, payload);
     return response;
 };
+
+export const addToFavourites = async (
+    songID: string,
+    payload: { isPinned: boolean }
+) => {
+    const response = await PUT(
+        `song/pinsong/${songID}?userId=${userId}`,
+        payload
+    );
+    return response;
+};

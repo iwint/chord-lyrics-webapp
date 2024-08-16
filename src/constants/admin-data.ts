@@ -1,1 +1,1 @@
-const ADMIN_ENABLED_TABS = ['']
+const ADMIN_ENABLED_TABS = ['my-songs']

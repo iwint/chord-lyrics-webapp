@@ -5,13 +5,15 @@ import { ENDPOINT } from "./helper";
 
 const token = Cookies.get('token')
 
+const header = {
+    Authorization: `Bearer ${token}`
+}
+
 export const GET = async (endpoint: ENDPOINT) => {
 
     try {
         const response = await fetch(`${BASE_URL}/${endpoint}`, {
-            headers: {
-                Authorization: `Bearer ${token}`
-            }
+            headers: token ? header : {}
         });
         if (response.status === 200 || response.status === 201) {
             return await response.json();

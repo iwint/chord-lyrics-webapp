@@ -4,8 +4,10 @@ import { HeartIcon, LogIn, LogOut } from 'lucide-react';
 
 import { format } from 'date-fns';
 
-import { getAllSongs, updateSong } from '@/api/api-services';
+import { addToFavourites, getAllSongs } from '@/api/api-services';
 import { SongSchema } from '@/models/song';
+import { addToFavouritesToLocalStorage } from '@/utils/save-to-local';
+import { useQueryClient } from '@tanstack/react-query';
 import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
 import { Badge } from '../ui/badge';
@@ -13,6 +15,7 @@ import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
+import { useToast } from '../ui/use-toast';
 import { EmptyPlaceholder } from './empty-placeholder';
 
 interface SongDisplayProps {
@@ -23,6 +26,8 @@ export function SongDisplay({ song }: SongDisplayProps) {
     const today = new Date();
     const router = useRouter();
     const token = Cookies.get('token');
+    const { toast } = useToast();
+    const queryClient = useQueryClient();
 
     const handleLogout = () => {
         Cookies.remove('token');
@@ -31,11 +36,28 @@ export function SongDisplay({ song }: SongDisplayProps) {
     };
 
     const handleAddToFavourites = async () => {
-        const payload = {
-            ...song,
+        let payload = {
             isPinned: !song?.isPinned,
         };
-        await updateSong(song?._id as any, payload).then(() => getAllSongs());
+        if (token) {
+            await addToFavourites(song?._id as string, payload).then(() =>
+                getAllSongs()
+            );
+        } else {
+            await addToFavouritesToLocalStorage({
+                _id: song?._id,
+                isPinned: !song?.isPinned,
+            });
+        }
+
+        toast({
+            title: payload.isPinned
+                ? 'Added to favourites'
+                : 'Removed from favourites',
+        });
+        await queryClient.invalidateQueries({
+            queryKey: ['songs'],
+        });
     };
 
     const handleLogin = () => {
@@ -54,7 +76,6 @@ export function SongDisplay({ song }: SongDisplayProps) {
                                 size="icon"
                                 disabled={!song}
                             >
-                                {' '}
                                 {song?.isPinned ? (
                                     <HeartIcon fill="red" className="h-5 w-5" />
                                 ) : (

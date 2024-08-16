@@ -4,6 +4,7 @@ import { ComponentProps } from 'react';
 import { cn } from '@/lib/utils';
 import { SongSchema } from '@/models/song';
 import { useSongs } from '@/store/useSongs';
+import { HeartIcon } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
 import { EmptyPlaceholder } from './empty-placeholder';
@@ -39,9 +40,6 @@ export function List({ items }: ListProps) {
                                         <div className="font-semibold">
                                             {item.title}
                                         </div>
-                                        {!item.isPinned && (
-                                            <span className="flex h-2 w-2 rounded-full bg-blue-600" />
-                                        )}
                                     </div>
                                     <div
                                         className={cn(
@@ -51,11 +49,14 @@ export function List({ items }: ListProps) {
                                                 : 'text-muted-foreground'
                                         )}
                                     >
-                                        {formatDistanceToNow(
-                                            new Date(item.createdAt),
-                                            {
-                                                addSuffix: true,
-                                            }
+                                        {item?.isPinned ? (
+                                            <HeartIcon
+                                                fill="red"
+                                                strokeWidth={'1'}
+                                                className="h-5 w-5"
+                                            />
+                                        ) : (
+                                            <HeartIcon className="h-5 w-5" />
                                         )}
                                     </div>
                                 </div>
@@ -64,16 +65,32 @@ export function List({ items }: ListProps) {
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                                <Badge variant={'default'}>{item.beat}</Badge>
-                                <Badge variant={'default'}>
-                                    {item.language}
-                                </Badge>
-                                <Badge variant={'default'}>
-                                    T-{item.tempo}
-                                </Badge>
-                                <Badge variant={'default'}>{item.style}</Badge>
-                                <Badge variant={'default'}>{item.scale}</Badge>
+                            <div className="flex items-center justify-between w-full gap-2">
+                                <div className="flex items-center gap-2">
+                                    <Badge variant={'default'}>
+                                        {item.beat}
+                                    </Badge>
+                                    <Badge variant={'default'}>
+                                        {item.language}
+                                    </Badge>
+                                    <Badge variant={'default'}>
+                                        T-{item.tempo}
+                                    </Badge>
+                                    <Badge variant={'default'}>
+                                        {item.style}
+                                    </Badge>
+                                    <Badge variant={'default'}>
+                                        {item.scale}
+                                    </Badge>
+                                </div>
+                                <div>
+                                    {formatDistanceToNow(
+                                        new Date(item.createdAt),
+                                        {
+                                            addSuffix: true,
+                                        }
+                                    )}
+                                </div>
                             </div>
                         </button>
                     ))
