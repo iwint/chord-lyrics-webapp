@@ -6,7 +6,6 @@ import { SongSchema } from '@/models/song';
 import { useSongs } from '@/store/useSongs';
 import { HeartIcon } from 'lucide-react';
 import { Badge } from '../ui/badge';
-import { ScrollArea } from '../ui/scroll-area';
 import { EmptyPlaceholder } from './empty-placeholder';
 
 interface ListProps {
@@ -17,8 +16,8 @@ export function List({ items }: ListProps) {
     const [song, setSongStore] = useSongs();
 
     return (
-        <ScrollArea className="h-screen">
-            <div className="flex flex-col gap-2 p-4 pt-0">
+        <div className="h-full w-full">
+            <div className="flex h-[80%] w-full overflow-y-auto flex-col gap-2 p-4 pt-0">
                 {items?.length > 0 ? (
                     items.map((item) => (
                         <button
@@ -98,7 +97,7 @@ export function List({ items }: ListProps) {
                     <EmptyPlaceholder isActionView />
                 )}
             </div>
-        </ScrollArea>
+        </div>
     );
 }
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { cn } from '@/lib/utils';
 import React from 'react';
 import {
     Dialog,
@@ -13,6 +14,7 @@ interface ModalProps {
     open: boolean;
     title: string;
     description: string;
+    className?: string;
     close: () => void;
     children: React.ReactNode;
 }
@@ -23,10 +25,13 @@ const Modal: React.FC<ModalProps> = ({
     title,
     open,
     close,
+    className,
 }) => {
     return (
         <Dialog modal onOpenChange={close} open={open}>
-            <DialogContent className="w-[80%] h-[90%]">
+            <DialogContent
+                className={cn(className ? className : 'w-[80%] h-[90%]')}
+            >
                 <DialogHeader>
                     <DialogTitle>{title}</DialogTitle>
                     <DialogDescription>{description}</DialogDescription>

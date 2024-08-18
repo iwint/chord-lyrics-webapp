@@ -1,10 +1,12 @@
 'use client';
 
-import { addSong } from '@/api/api-services';
+import { addSong, updateSong } from '@/api/api-services';
+import { Icons } from '@/assets/icons/spinner-icon';
 import { BEATS } from '@/constants/form-data';
 import useAddSongModal from '@/hooks/use-add-modal';
 import { useQueryClient } from '@tanstack/react-query';
-import React, { useState } from 'react';
+import React from 'react';
+import { trackPromise, usePromiseTracker } from 'react-promise-tracker';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -12,38 +14,51 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { useToast } from '../ui/use-toast';
 
-interface AddSongFormProps {}
+interface SongFormProps {}
 
-const AddSongForm: React.FC<AddSongFormProps> = () => {
-    const { onClose } = useAddSongModal();
-    const [selectedBeat, setSelectBeat] = useState<string | null>(null);
+const AddSongForm: React.FC<SongFormProps> = () => {
+    const { onClose, setData, data, isEdit, setEdit } = useAddSongModal();
     const { toast } = useToast();
     const queryClient = useQueryClient();
+    const { promiseInProgress } = usePromiseTracker();
 
-    const handleSubmit = async (formData: FormData) => {
+    const handleOnClose = () => {
+        setData(null);
+        setEdit(false);
+        onClose();
+    };
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement> | any) => {
         const payload = {
-            title: formData.get('title'),
-            scale: formData.get('scale'),
-            tempo: formData.get('tempo'),
-            style: formData.get('style'),
-            beat: selectedBeat,
-            language: formData.get('language'),
-            keyboardModal: formData.get('keyboardModal'),
-            lyrics: JSON.stringify(formData.get('lyrics')),
+            ...data,
+            [e.target.name]: e.target.value,
         };
+        setData(payload);
+    };
+
+    const handleSubmit = async () => {
+        const payload = {
+            ...data,
+            lyrics: JSON.stringify(data.lyrics),
+        };
+
         try {
-            const response = await addSong(payload);
-            console.log(response);
+            let response;
+            if (isEdit) {
+                response = await updateSong(data._id, payload);
+            } else {
+                response = await addSong(payload);
+            }
 
             if (response.status === 'ok') {
                 toast({
-                    title: 'Song added successfully',
+                    title: `Song ${isEdit ? 'edited' : 'added'} successfully`,
                     variant: 'default',
                 });
-                queryClient.invalidateQueries({
-                    queryKey: ['songs'],
+                await queryClient.invalidateQueries({
+                    queryKey: ['my-songs'],
                 });
-                onClose();
+                handleOnClose();
             }
         } catch (error) {
             toast({
@@ -54,17 +69,28 @@ const AddSongForm: React.FC<AddSongFormProps> = () => {
     };
 
     return (
-        <form action={handleSubmit} className="grid gap-3 grid-cols-12">
+        <div className="grid gap-3 grid-cols-12">
             <div className="col-span-8 gap-4 ">
                 <div className="flex w-full h-full flex-col space-y-4">
                     <Label htmlFor="area">Lyrics</Label>
                     <Textarea
+                        onChange={(e) => handleChange(e as any)}
                         name="lyrics"
+                        value={data?.lyrics}
                         placeholder="Give your song lyrics here..."
                         className="min-h-[400px] flex-1 p-4 md:max-h-[400px] lg:max-h-[500px]"
                     />
                     <div className="flex items-center space-x-2">
-                        <Button type="submit">Submit</Button>
+                        <Button
+                            disabled={data === null}
+                            onClick={() => trackPromise(handleSubmit())}
+                            type="submit"
+                        >
+                            {promiseInProgress ? (
+                                <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
+                            ) : null}
+                            Submit
+                        </Button>
                     </div>
                 </div>
             </div>
@@ -76,7 +102,9 @@ const AddSongForm: React.FC<AddSongFormProps> = () => {
                             <Input
                                 name="title"
                                 id="title"
-                                placeholder="I need help with..."
+                                value={data?.title}
+                                placeholder="Song name"
+                                onChange={handleChange}
                             />
                         </div>
                         <div className="grid gap-2">
@@ -86,21 +114,31 @@ const AddSongForm: React.FC<AddSongFormProps> = () => {
                             <Input
                                 name="keyboardModal"
                                 id="keyboardModal"
+                                value={data?.keyboardModal}
                                 placeholder="Eg.Yamaha i455"
+                                onChange={handleChange}
                             />
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
                             <Label htmlFor="area">Scale</Label>
-                            <Input name="scale" id="scale" placeholder="Eg.D" />
+                            <Input
+                                name="scale"
+                                id="scale"
+                                value={data?.scale}
+                                placeholder="Eg.D"
+                                onChange={handleChange}
+                            />
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="security-level">Tempo</Label>
                             <Input
                                 name="tempo"
+                                value={data?.tempo}
                                 id="tempo"
                                 placeholder="Eg.120"
+                                onChange={handleChange}
                             />
                         </div>
                     </div>
@@ -108,8 +146,10 @@ const AddSongForm: React.FC<AddSongFormProps> = () => {
                         <Label htmlFor="subject">Song Language</Label>
                         <Input
                             name="language"
+                            value={data?.language}
                             id="language"
                             placeholder="Eg.Tamil"
+                            onChange={handleChange}
                         />
                     </div>
                     <div className="grid gap-2">
@@ -117,7 +157,9 @@ const AddSongForm: React.FC<AddSongFormProps> = () => {
                         <Input
                             name="style"
                             id="style"
+                            value={data?.style}
                             placeholder="Eg.Disco or 50"
+                            onChange={handleChange}
                         />
                     </div>
                     <div className="grid gap-2">
@@ -126,9 +168,16 @@ const AddSongForm: React.FC<AddSongFormProps> = () => {
                             {BEATS.map((beat, index) => (
                                 <Badge
                                     key={index}
-                                    onClick={() => setSelectBeat(beat)}
+                                    onClick={() =>
+                                        handleChange({
+                                            target: {
+                                                name: 'beat',
+                                                value: beat,
+                                            },
+                                        })
+                                    }
                                     variant={
-                                        selectedBeat === beat
+                                        data?.beat === beat
                                             ? 'default'
                                             : 'outline'
                                     }
@@ -141,7 +190,7 @@ const AddSongForm: React.FC<AddSongFormProps> = () => {
                     </div>
                 </div>
             </div>
-        </form>
+        </div>
     );
 };
 

@@ -1,9 +1,7 @@
 'use client';
 
-import { GET, POST, PUT } from '@/api/api-config';
+import { DELETE, GET, POST, PUT } from '@/api/api-config';
 import Cookies from 'js-cookie';
-
-const userId = Cookies.get('userId');
 
 export const getAllSongs = async () => {
     const response = await GET('song/getAllSongs');
@@ -12,7 +10,6 @@ export const getAllSongs = async () => {
 
 export const getUserData = async () => {
     const response = await GET('auth/userData');
-    await Cookies.set('userId', response?.data?._id);
     return response.data;
 };
 
@@ -42,21 +39,25 @@ export const getKeyboards = async () => {
 };
 
 export const getPendingSongs = async () => {
+    const userId = await Cookies.get('userId');
     const response = await GET(`song/getPendingSongs?userId=${userId}`);
     return response.data;
 };
 
 export const getMyPendingSongs = async () => {
+    const userId = await Cookies.get('userId');
     const response = await GET(`song/getMyPendingSongs?userId=${userId}`);
     return response.data;
 };
 
 export const getMySongs = async () => {
+    const userId = await Cookies.get('userId');
     const response = await GET(`song/getMySongs?userId=${userId}`);
     return response.data;
 };
 
 export const approveSong = async (songId: string) => {
+    const userId = await Cookies.get('userId');
     const response = await PUT(
         `song/approveSong?userId=${userId}&songId=${songId}`
     );
@@ -64,14 +65,16 @@ export const approveSong = async (songId: string) => {
 };
 
 export const updateSong = async (songId: string, payload: any) => {
+    const userId = await Cookies.get('userId');
     const response = await PUT(
-        `/song/updateSong/${songId}?userId=${userId}`,
+        `song/updateSong/${songId}?userId=${userId}`,
         payload
     );
-    return response.data;
+    return response;
 };
 
 export const addSong = async (payload: any) => {
+    const userId = await Cookies.get('userId');
     const response = await POST(`song/addSong?userId=${userId}`, payload);
     return response;
 };
@@ -80,9 +83,22 @@ export const addToFavourites = async (
     songID: string,
     payload: { isPinned: boolean }
 ) => {
+    const userId = await Cookies.get('userId');
     const response = await PUT(
         `song/pinsong/${songID}?userId=${userId}`,
         payload
     );
     return response;
+};
+
+export const deleteSong = async (songID: string) => {
+    const userId = await Cookies.get('userId');
+    const response = await DELETE(`song/delete/${songID}?userId=${userId}`);
+    return response;
+};
+
+export const getRequestedSongs = async () => {
+    const userId = await Cookies.get('userId');
+    const response = await GET(`song/getPendingSongs?userId=${userId}`);
+    return response.data;
 };

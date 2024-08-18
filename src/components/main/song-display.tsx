@@ -1,11 +1,22 @@
 'use client';
 
-import { HeartIcon, LogIn, LogOut } from 'lucide-react';
+import {
+    CheckIcon,
+    Edit,
+    HeartIcon,
+    LogIn,
+    LogOut,
+    Trash2,
+    X,
+} from 'lucide-react';
 
 import { format } from 'date-fns';
 
-import { addToFavourites, getAllSongs } from '@/api/api-services';
+import { addToFavourites, approveSong, getAllSongs } from '@/api/api-services';
+import useAddSongModal from '@/hooks/use-add-modal';
+import useDeleteModal from '@/hooks/use-delete-modal';
 import { SongSchema } from '@/models/song';
+import { useSongs } from '@/store/useSongs';
 import { addToFavouritesToLocalStorage } from '@/utils/save-to-local';
 import { useQueryClient } from '@tanstack/react-query';
 import Cookies from 'js-cookie';
@@ -23,15 +34,20 @@ interface SongDisplayProps {
 }
 
 export function SongDisplay({ song }: SongDisplayProps) {
-    const today = new Date();
     const router = useRouter();
     const token = Cookies.get('token');
     const { toast } = useToast();
     const queryClient = useQueryClient();
+    const { onOpen, setData, setEdit } = useAddSongModal();
+    const [tabs] = useSongs();
+    const { onOpen: openDeleteModal } = useDeleteModal();
+    const userId = Cookies.get('userId');
+    const isAdmin = Cookies.get('isAdmin') === 'true';
 
     const handleLogout = () => {
         Cookies.remove('token');
         Cookies.remove('userId');
+        Cookies.remove('isAdmin');
         router.refresh();
     };
 
@@ -64,35 +80,150 @@ export function SongDisplay({ song }: SongDisplayProps) {
         router.push('/login');
     };
 
+    const handleEditModal = () => {
+        setData({
+            ...(song as SongSchema),
+            lyrics: JSON.parse(song?.lyrics as any),
+        });
+        setEdit(true);
+        onOpen();
+    };
+
+    const handleDeleteModal = () => {
+        openDeleteModal();
+    };
+
+    const handleApprove = async () => {
+        try {
+            const response = await approveSong(song?._id as any);
+
+            if (response.status === 'ok') {
+                toast({
+                    title: 'Song approved successfully',
+                    variant: 'default',
+                });
+                await queryClient.invalidateQueries({
+                    queryKey: ['requests', 'songs'],
+                });
+            }
+        } catch (error) {
+            toast({
+                title: 'Oops! Something went wrong 💔',
+                variant: 'destructive',
+            });
+        }
+    };
+
     return (
         <div className="flex h-full flex-col">
             <div className="flex items-center p-2">
                 <div className="flex items-center gap-2">
                     <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                                onClick={handleAddToFavourites}
-                                variant="ghost"
-                                size="icon"
-                                disabled={!song}
-                            >
-                                <>
-                                    {song?.isPinned ? (
-                                        <HeartIcon
-                                            fill="red"
-                                            className="h-5 w-5"
-                                        />
-                                    ) : (
-                                        <HeartIcon className="h-4 w-4" />
-                                    )}
-                                    <span className="sr-only">
-                                        Add to favourites
-                                    </span>
-                                </>
-                            </Button>
-                        </TooltipTrigger>
+                        {tabs.currentTab.value !== 'my-songs' && (
+                            <TooltipTrigger asChild>
+                                <Button
+                                    onClick={handleAddToFavourites}
+                                    variant="ghost"
+                                    size="icon"
+                                    disabled={!song}
+                                >
+                                    <>
+                                        {song?.isPinned ? (
+                                            <HeartIcon
+                                                fill="red"
+                                                className="h-5 w-5"
+                                            />
+                                        ) : (
+                                            <HeartIcon className="h-5 w-5" />
+                                        )}
+                                        <span className="sr-only">
+                                            Add to favourites
+                                        </span>
+                                    </>
+                                </Button>
+                            </TooltipTrigger>
+                        )}
                         <TooltipContent> Add to favourites</TooltipContent>
                     </Tooltip>
+                    {(isAdmin || userId === song?.user_id) && (
+                        <>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        onClick={handleEditModal}
+                                        variant="ghost"
+                                        size="icon"
+                                        disabled={!song}
+                                    >
+                                        <>
+                                            <Edit className="h-5 w-5" />
+                                            <span className="sr-only">
+                                                Edit
+                                            </span>
+                                        </>
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent> Edit</TooltipContent>
+                            </Tooltip>
+                            {isAdmin &&
+                                tabs.currentTab.value === 'requests' && (
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                onClick={handleApprove}
+                                                variant="ghost"
+                                                size="icon"
+                                                disabled={!song}
+                                            >
+                                                <>
+                                                    <CheckIcon className="text-[#47B881] h-5 w-5" />
+                                                    <span className="sr-only">
+                                                        Approve
+                                                    </span>
+                                                </>
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Approve</TooltipContent>
+                                    </Tooltip>
+                                )}
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        onClick={handleDeleteModal}
+                                        variant="ghost"
+                                        size="icon"
+                                        disabled={!song}
+                                    >
+                                        {isAdmin &&
+                                        tabs.currentTab.value === 'requests' ? (
+                                            <>
+                                                <X
+                                                    strokeWidth={'2'}
+                                                    className="h-5 w-5 text-red-700"
+                                                />
+                                                <span className="sr-only">
+                                                    Decline
+                                                </span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Trash2
+                                                    strokeWidth={'2'}
+                                                    className="h-5 w-5 text-red-700"
+                                                />
+                                                <span className="sr-only">
+                                                    Delete
+                                                </span>
+                                            </>
+                                        )}
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    {isAdmin ? 'Decline' : 'Delete'}
+                                </TooltipContent>
+                            </Tooltip>
+                        </>
+                    )}
                 </div>
                 <div className="ml-auto flex items-center gap-2" />
                 <Tooltip>
@@ -163,7 +294,7 @@ export function SongDisplay({ song }: SongDisplayProps) {
                     </div>
                     <Separator />
                     <ScrollArea className="h-[100%] whitespace-pre-wrap p-4 text-sm">
-                        {JSON.parse(song.lyrics)}
+                        {JSON.parse(song?.lyrics)}
                     </ScrollArea>
                 </div>
             ) : (

@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
+import { trackPromise, usePromiseTracker } from 'react-promise-tracker';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -14,14 +15,12 @@ import { useToast } from '../ui/use-toast';
 interface UserAuthFormProps extends React.HTMLAttributes<HTMLDivElement> {}
 
 export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
-    const [isLoading, setIsLoading] = React.useState<boolean>(false);
     const [currentPage, setCurrentPage] = React.useState('sign-in');
+    const { promiseInProgress } = usePromiseTracker();
     const router = useRouter();
     const { toast, toasts } = useToast();
 
     async function onSubmit(formData: FormData) {
-        setIsLoading(true);
-
         const payload = {
             email: formData.get('email'),
             password: formData.get('password'),
@@ -31,7 +30,7 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
         const endpoint =
             currentPage === 'sign-in' ? 'auth/login' : 'auth/register';
 
-        const response = await POST(endpoint, payload);
+        const response = await trackPromise(POST(endpoint, payload));
 
         if (response.status === 'ok') {
             if (
@@ -46,7 +45,7 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
                 togglePage();
             } else if (response.token) {
                 await Cookies.set('token', response?.token);
-                router.replace('/');
+                router.replace('/')
             } else {
                 toast({
                     variant: 'destructive',
@@ -61,10 +60,6 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
                 description: response.message,
             });
         }
-
-        await setTimeout(() => {
-            setIsLoading(false);
-        }, 1000);
     }
 
     const togglePage = () => {
@@ -110,7 +105,7 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
                                 autoCapitalize="none"
                                 autoComplete="name"
                                 autoCorrect="off"
-                                disabled={isLoading}
+                                disabled={promiseInProgress}
                             />
                         </div>
                         <div className="grid gap-1">
@@ -125,7 +120,7 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
                                 autoCapitalize="none"
                                 autoComplete="email"
                                 autoCorrect="off"
-                                disabled={isLoading}
+                                disabled={promiseInProgress}
                             />
                         </div>
                         <div className="grid gap-1">
@@ -140,11 +135,11 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
                                 autoCapitalize="none"
                                 autoComplete="email"
                                 autoCorrect="off"
-                                disabled={isLoading}
+                                disabled={promiseInProgress}
                             />
                         </div>
-                        <Button disabled={isLoading}>
-                            {isLoading && (
+                        <Button disabled={promiseInProgress}>
+                            {promiseInProgress && (
                                 <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
                             )}
                             {currentPage === 'sign-in' ? 'Sign in' : 'Sign up'}

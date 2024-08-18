@@ -15,3 +15,10 @@ export interface SongSchema {
     updatedAt: string;
     __v: number;
 }
+
+export interface SongTabsDataProps {
+    "all": Array<SongSchema>
+    "my-songs": Array<SongSchema>
+    "favourites": Array<SongSchema>,
+    "requests": Array<SongSchema>
+}
