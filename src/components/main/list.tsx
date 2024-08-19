@@ -1,11 +1,19 @@
 import { formatDistanceToNow } from 'date-fns';
 import { ComponentProps } from 'react';
 
+import { addToFavourites, getAllSongs } from '@/api/api-services';
 import { cn } from '@/lib/utils';
 import { SongSchema } from '@/models/song';
 import { useSongs } from '@/store/useSongs';
+import {
+    addToFavouritesToLocalStorage,
+    isSongPinned,
+} from '@/utils/save-to-local';
+import { useQueryClient } from '@tanstack/react-query';
+import Cookies from 'js-cookie';
 import { HeartIcon } from 'lucide-react';
 import { Badge } from '../ui/badge';
+import { useToast } from '../ui/use-toast';
 import { EmptyPlaceholder } from './empty-placeholder';
 
 interface ListProps {
@@ -14,12 +22,41 @@ interface ListProps {
 
 export function List({ items }: ListProps) {
     const [song, setSongStore] = useSongs();
+    const token = Cookies.get('token');
+    const userId = Cookies.get('userId');
+    const { toast } = useToast();
+    const queryClient = useQueryClient();
+
+    const handleAddToFavourites = async (song: SongSchema) => {
+        let payload = {
+            isPinned: !song?.isPinned,
+        };
+        if (token) {
+            await addToFavourites(song?._id as string, payload).then(() =>
+                getAllSongs()
+            );
+        } else {
+            await addToFavouritesToLocalStorage({
+                _id: song?._id,
+                isPinned: !song?.isPinned,
+            });
+        }
+
+        toast({
+            title: payload.isPinned
+                ? 'Added to favourites'
+                : 'Removed from favourites',
+        });
+        await queryClient.invalidateQueries({
+            queryKey: ['songs'],
+        });
+    };
 
     return (
         <div className="h-full w-full">
             <div className="flex h-[80%] w-full overflow-y-auto flex-col gap-2 p-4 pt-0">
                 {items?.length > 0 ? (
-                    items.map((item) => (
+                    items?.map((item) => (
                         <button
                             key={item._id}
                             className={cn(
@@ -40,24 +77,30 @@ export function List({ items }: ListProps) {
                                             {item.title}
                                         </div>
                                     </div>
-                                    <div
-                                        className={cn(
-                                            'ml-auto text-xs',
-                                            song.selected === item._id
-                                                ? 'text-foreground'
-                                                : 'text-muted-foreground'
-                                        )}
-                                    >
-                                        {item?.isPinned ? (
-                                            <HeartIcon
-                                                fill="red"
-                                                strokeWidth={'1'}
-                                                className="h-5 w-5"
-                                            />
-                                        ) : (
-                                            <HeartIcon className="h-5 w-5" />
-                                        )}
-                                    </div>
+                                    {userId !== item.user_id && (
+                                        <div
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleAddToFavourites(item);
+                                            }}
+                                            className={cn(
+                                                'ml-auto text-xs hover:opacity-65',
+                                                song.selected === item._id
+                                                    ? 'text-foreground'
+                                                    : 'text-muted-foreground'
+                                            )}
+                                        >
+                                            {isSongPinned(item) ? (
+                                                <HeartIcon
+                                                    fill="red"
+                                                    strokeWidth={'1'}
+                                                    className="h-5 w-5"
+                                                />
+                                            ) : (
+                                                <HeartIcon className="h-5 w-5" />
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="text-xs font-medium">
                                     {item.keyboardModal}
@@ -81,6 +124,19 @@ export function List({ items }: ListProps) {
                                     <Badge variant={'default'}>
                                         {item.scale}
                                     </Badge>
+                                    {item.user_id === userId && (
+                                        <Badge
+                                            className={cn(
+                                                item.status === 'active'
+                                                    ? 'bg-green-500'
+                                                    : 'bg-red-500',
+                                                'capitalize'
+                                            )}
+                                            variant={'default'}
+                                        >
+                                            {item?.status}
+                                        </Badge>
+                                    )}
                                 </div>
                                 <div>
                                     {formatDistanceToNow(

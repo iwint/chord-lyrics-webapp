@@ -44,6 +44,8 @@ export function SongsSection({ defaultLayout = [20, 32, 48] }: SongProps) {
     const [songStore, setSongStore] = useSongs();
     const { toast } = useToast();
     const { onClose: closeDeleteModal } = useDeleteModal();
+    const locallyStoredPinnedSongs = Cookies.get('pinnedSongs');
+
     const {
         isOpen,
         onClose,
@@ -80,7 +82,7 @@ export function SongsSection({ defaultLayout = [20, 32, 48] }: SongProps) {
                         );
                         return res;
                     }),
-                enabled: token !== null || token !== undefined,
+                enabled: !!token,
             },
             {
                 queryKey: ['my-songs'],
@@ -101,10 +103,20 @@ export function SongsSection({ defaultLayout = [20, 32, 48] }: SongProps) {
         ],
     });
 
+    const getFavourites = () => {
+        return token
+            ? results[0].data?.filter((i: SongSchema) => i.isPinned)
+            : results[0]?.data?.filter((i: SongSchema) =>
+                  JSON.parse(locallyStoredPinnedSongs || '[]').some(
+                      (s: any) => s._id === i._id
+                  )
+              );
+    };
+
     const songs: SongTabsDataProps = {
         all: results[0].data,
         'my-songs': results[2]?.data,
-        favourites: results[0].data?.filter((i: SongSchema) => i.isPinned),
+        favourites: getFavourites(),
         requests: results[3].data,
     };
 
@@ -181,7 +193,10 @@ export function SongsSection({ defaultLayout = [20, 32, 48] }: SongProps) {
                 className="h-full items-stretch"
             >
                 <ResizablePanel defaultSize={defaultLayout[1]} minSize={30}>
-                    <Tabs className='h-full' defaultValue={songStore.currentTab.value}>
+                    <Tabs
+                        className="h-full"
+                        defaultValue={songStore.currentTab.value}
+                    >
                         <div className="flex items-center px-4 py-2">
                             <h1 className="text-xl font-bold">
                                 {songStore.currentTab.label}

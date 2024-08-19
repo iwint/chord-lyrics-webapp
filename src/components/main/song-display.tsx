@@ -17,7 +17,10 @@ import useAddSongModal from '@/hooks/use-add-modal';
 import useDeleteModal from '@/hooks/use-delete-modal';
 import { SongSchema } from '@/models/song';
 import { useSongs } from '@/store/useSongs';
-import { addToFavouritesToLocalStorage } from '@/utils/save-to-local';
+import {
+    addToFavouritesToLocalStorage,
+    isSongPinned,
+} from '@/utils/save-to-local';
 import { useQueryClient } from '@tanstack/react-query';
 import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
@@ -38,6 +41,7 @@ export function SongDisplay({ song }: SongDisplayProps) {
     const token = Cookies.get('token');
     const { toast } = useToast();
     const queryClient = useQueryClient();
+    const locallyStoredPinnedSongs = Cookies.get('pinnedSongs');
     const { onOpen, setData, setEdit } = useAddSongModal();
     const [tabs] = useSongs();
     const { onOpen: openDeleteModal } = useDeleteModal();
@@ -128,7 +132,7 @@ export function SongDisplay({ song }: SongDisplayProps) {
                                     disabled={!song}
                                 >
                                     <>
-                                        {song?.isPinned ? (
+                                        {isSongPinned(song as SongSchema) ? (
                                             <HeartIcon
                                                 fill="red"
                                                 className="h-5 w-5"
