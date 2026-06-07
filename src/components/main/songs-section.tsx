@@ -1,22 +1,12 @@
 'use client';
 
 import { Search } from 'lucide-react';
-
-//@ts-ignore
-import {
-    deleteSong,
-    getAllSongs,
-    getMySongs,
-    getRequestedSongs,
-    getUserData,
-} from '@/api/api-services';
+import React, { useState, useEffect } from 'react';
 import { TABProps, TABS } from '@/constants/tab-data';
 import useAddSongModal from '@/hooks/use-add-modal';
 import useDeleteModal from '@/hooks/use-delete-modal';
-import { SongSchema, SongTabsDataProps } from '@/models/song';
+import { SongTabsDataProps } from '@/models/song';
 import { useSongs } from '@/store/useSongs';
-import { useQueries, useQueryClient } from '@tanstack/react-query';
-import Cookies from 'js-cookie';
 import DeleteModal from '../common/delete-modal';
 import Loader from '../common/loader';
 import Modal from '../common/modal';
@@ -33,6 +23,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { useToast } from '../ui/use-toast';
 import { List } from './list';
 import { SongDisplay } from './song-display';
+import { ThemeToggle } from '../common/ThemeToggle';
+
+// Redux
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '@/lib/store/store';
+import {
+    useGetAllSongsQuery,
+    useGetMySongsQuery,
+    useGetPendingSongsQuery,
+    useSearchSongsQuery,
+    useDeleteSongMutation,
+} from '@/lib/store/api/songsApi';
+import { useGetPinnedSongsQuery } from '@/lib/store/api/pinsApi';
 
 interface SongProps {
     defaultLayout: number[] | undefined;
@@ -40,11 +43,24 @@ interface SongProps {
     navCollapsedSize: number;
 }
 
+// Debounce hook for search
+function useDebounce<T>(value: T, delay: number): T {
+    const [debouncedValue, setDebouncedValue] = useState<T>(value);
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedValue(value);
+        }, delay);
+        return () => clearTimeout(handler);
+    }, [value, delay]);
+    return debouncedValue;
+}
+
 export function SongsSection({ defaultLayout = [20, 32, 48] }: SongProps) {
     const [songStore, setSongStore] = useSongs();
     const { toast } = useToast();
     const { onClose: closeDeleteModal } = useDeleteModal();
-    const locallyStoredPinnedSongs = Cookies.get('pinnedSongs');
+    const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearch = useDebounce(searchQuery, 400);
 
     const {
         isOpen,
@@ -52,10 +68,21 @@ export function SongsSection({ defaultLayout = [20, 32, 48] }: SongProps) {
         isEdit,
         onOpen: openAddSongModal,
     } = useAddSongModal();
-    const queryClient = useQueryClient();
-    const token = Cookies.get('token');
-    const userID = Cookies.get('userId');
-    const isAdmin = Cookies.get('isAdmin') === 'true';
+
+    // Redux Auth State
+    const { isAuthenticated, isAdmin } = useSelector((state: RootState) => state.auth);
+
+    // RTK Queries
+    const { data: allRes, isFetching: isAllFetching } = useGetAllSongsQuery();
+    const { data: searchRes, isFetching: isSearchFetching } = useSearchSongsQuery(debouncedSearch, {
+        skip: debouncedSearch.trim() === '',
+    });
+    const { data: myRes, isFetching: isMyFetching } = useGetMySongsQuery(undefined, { skip: !isAuthenticated });
+    const { data: pinsRes, isFetching: isPinsFetching } = useGetPinnedSongsQuery(undefined, { skip: !isAuthenticated });
+    const { data: pendingRes, isFetching: isPendingFetching } = useGetPendingSongsQuery(undefined, { skip: !isAdmin });
+
+    // RTK Mutations
+    const [deleteSong] = useDeleteSongMutation();
 
     const handleCurrentTab = (tab: TABProps) => {
         setSongStore({
@@ -64,85 +91,40 @@ export function SongsSection({ defaultLayout = [20, 32, 48] }: SongProps) {
         });
     };
 
-    const results = useQueries({
-        queries: [
-            {
-                queryKey: ['songs'],
-                queryFn: getAllSongs,
-            },
-            {
-                queryKey: ['user'],
-                // Sorry for below code.I know its bad but then I have to do this..
-                queryFn: async () =>
-                    await getUserData().then(async (res) => {
-                        await Cookies.set('userId', res._id);
-                        await Cookies.set(
-                            'isAdmin',
-                            (res?.role === 'ADMIN').toString()
-                        );
-                        return res;
-                    }),
-                enabled: !!token,
-            },
-            {
-                queryKey: ['my-songs'],
-                queryFn: getMySongs,
-                enabled:
-                    songStore.currentTab.value === 'my-songs' &&
-                    !!token &&
-                    !!userID,
-            },
-            {
-                queryKey: ['requests'],
-                queryFn: getRequestedSongs,
-                enabled:
-                    songStore.currentTab.value === 'requests' &&
-                    !!token &&
-                    !!userID,
-            },
-        ],
-    });
-
-    const getFavourites = () => {
-        return token
-            ? results[0].data?.filter((i: SongSchema) => i.isPinned)
-            : results[0]?.data?.filter((i: SongSchema) =>
-                  JSON.parse(locallyStoredPinnedSongs || '[]').some(
-                      (s: any) => s._id === i._id
-                  )
-              );
-    };
+    // Use search results if there's a query, otherwise use all approved songs
+    const allSongsList = debouncedSearch.trim() !== '' ? searchRes?.data : allRes?.data;
 
     const songs: SongTabsDataProps = {
-        all: results[0].data,
-        'my-songs': results[2]?.data,
-        favourites: getFavourites(),
-        requests: results[3].data,
+        all: allSongsList,
+        'my-songs': myRes?.data,
+        favourites: pinsRes?.data,
+        requests: pendingRes?.data,
     };
 
     const getSongById = (id: string | null) => {
-        return (
-            songs[songStore.currentTab.value as keyof SongTabsDataProps]?.find(
-                (i) => i?._id === id
-            ) || null
-        );
+        if (!id) return null;
+        // Search across all tab arrays to find the active song
+        for (const key of Object.keys(songs)) {
+            const arr = songs[key as keyof SongTabsDataProps];
+            if (arr) {
+                const found = arr.find((i: any) => i.song_id === id);
+                if (found) return found;
+            }
+        }
+        return null;
     };
 
     const handleDeleteSong = async () => {
         try {
-            const response = await deleteSong(songStore.selected as any);
-            console.log(response);
-
-            if (response.status === 'ok') {
-                toast({
-                    title: 'Song deleted successfully',
-                    variant: 'default',
-                });
-                await queryClient.invalidateQueries({
-                    queryKey: ['my-songs'],
-                });
-                closeDeleteModal();
-            }
+            if (!songStore.selected) return;
+            await deleteSong(songStore.selected).unwrap();
+            
+            toast({
+                title: 'Song deleted successfully',
+                variant: 'default',
+            });
+            closeDeleteModal();
+            setSongStore({ ...songStore, selected: null });
         } catch (error) {
             toast({
                 title: 'Oops! Something went wrong 💔',
@@ -152,10 +134,11 @@ export function SongsSection({ defaultLayout = [20, 32, 48] }: SongProps) {
     };
 
     const isLoading =
-        results[0].isFetching ||
-        results[1].isFetching ||
-        results[2].isFetching ||
-        results[3].isFetching;
+        isAllFetching ||
+        isSearchFetching ||
+        isMyFetching ||
+        isPinsFetching ||
+        isPendingFetching;
 
     const getTabData = () => {
         if (isAdmin) {
@@ -183,6 +166,7 @@ export function SongsSection({ defaultLayout = [20, 32, 48] }: SongProps) {
             </Modal>
             <DeleteModal handleDelete={handleDeleteSong} />
             <Loader isLoading={isLoading} />
+            
             <ResizablePanelGroup
                 direction="horizontal"
                 onLayout={(sizes: number[]) => {
@@ -201,7 +185,7 @@ export function SongsSection({ defaultLayout = [20, 32, 48] }: SongProps) {
                             <h1 className="text-xl font-bold">
                                 {songStore.currentTab.label}
                             </h1>
-                            <TabsList className="ml-auto">
+                            <TabsList className="ml-auto mr-2">
                                 {getTabData().map((tab, index) => (
                                     <TabsTrigger
                                         onClick={() => handleCurrentTab(tab)}
@@ -213,21 +197,24 @@ export function SongsSection({ defaultLayout = [20, 32, 48] }: SongProps) {
                                     </TabsTrigger>
                                 ))}
                             </TabsList>
+                            <ThemeToggle />
                         </div>
                         <Separator />
                         <div className="bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                            <form className="flex items-center gap-2">
+                            <form className="flex items-center gap-2" onSubmit={(e) => e.preventDefault()}>
                                 <div className="relative flex-1">
                                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                                     <Input
-                                        placeholder="Search"
+                                        placeholder="Search by title, scale, language..."
                                         className="pl-8"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
                                     />
                                 </div>
                                 {showAddButton && (
                                     <Button
                                         type="button"
-                                        className={!token ? 'hidden' : ''}
+                                        className={!isAuthenticated ? 'hidden' : ''}
                                         onClick={openAddSongModal}
                                     >
                                         Add song
@@ -239,13 +226,13 @@ export function SongsSection({ defaultLayout = [20, 32, 48] }: SongProps) {
                             <TabsContent
                                 key={index}
                                 value={tab.value}
-                                className="m-0 w-full h-full"
+                                className="m-0 w-full h-[calc(100vh-130px)] overflow-hidden"
                             >
                                 <List
                                     items={
                                         songs[
                                             tab.value as keyof SongTabsDataProps
-                                        ]
+                                        ] || []
                                     }
                                 />
                             </TabsContent>

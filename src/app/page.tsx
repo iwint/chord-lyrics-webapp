@@ -1,4 +1,5 @@
 import MainPage from '@/components/main';
+import { AiChatFab } from '@/components/ai/AiChatFab';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -7,5 +8,10 @@ export const metadata: Metadata = {
 };
 
 export default function Main() {
-    return <MainPage />;
+    return (
+        <>
+            <MainPage />
+            <AiChatFab />
+        </>
+    );
 }
