@@ -29,9 +29,7 @@ const Modal: React.FC<ModalProps> = ({
 }) => {
     return (
         <Dialog modal onOpenChange={close} open={open}>
-            <DialogContent
-                className={cn(className ? className : 'w-[80%] h-[90%]')}
-            >
+            <DialogContent className={cn(className ? className : 'w-[80%]')}>
                 <DialogHeader>
                     <DialogTitle>{title}</DialogTitle>
                     <DialogDescription>{description}</DialogDescription>

@@ -22,7 +22,7 @@ export function EmptyPlaceholder({
         if (token) {
             onOpen();
         } else {
-            router.push('/login');
+            router.push('/sign-in');
         }
     };
 
