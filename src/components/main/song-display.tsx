@@ -8,87 +8,133 @@ import {
     LogOut,
     Trash2,
     X,
+    Loader2,
 } from 'lucide-react';
-
 import { format } from 'date-fns';
-
-import { addToFavourites, approveSong, getAllSongs } from '@/api/api-services';
 import useAddSongModal from '@/hooks/use-add-modal';
 import useDeleteModal from '@/hooks/use-delete-modal';
-import { SongSchema } from '@/models/song';
 import { useSongs } from '@/store/useSongs';
-import {
-    addToFavouritesToLocalStorage,
-    isSongPinned,
-} from '@/utils/save-to-local';
-import { useQueryClient } from '@tanstack/react-query';
-import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
-import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
-import { Separator } from '../ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { useToast } from '../ui/use-toast';
 import { EmptyPlaceholder } from './empty-placeholder';
+import { ChordLyricsRenderer } from '../ai/ChordLyricsRenderer';
+
+// Redux
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '@/lib/store/store';
+import { logout } from '@/lib/store/slices/authSlice';
+import {
+    useApproveSongMutation,
+    useRejectSongMutation,
+} from '@/lib/store/api/songsApi';
+import {
+    useGetPinnedSongsQuery,
+    usePinSongMutation,
+    useUnpinSongMutation,
+} from '@/lib/store/api/pinsApi';
 
 interface SongDisplayProps {
-    song: SongSchema | null;
+    song: any | null;
+}
+
+interface InfoBadgeProps {
+    label: string;
+    value?: string;
+}
+
+function InfoBadge({ label, value }: InfoBadgeProps) {
+    const display =
+        value && value !== 'N/A' && value.trim() !== '' ? value : 'N/A';
+    return (
+        <div className="flex items-center gap-1.5 bg-background/80 backdrop-blur-sm rounded-md px-2.5 py-1 border border-border/50 shadow-sm transition-colors hover:border-primary/30">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80">
+                {label}
+            </span>
+            <span className="text-[11px] font-bold text-foreground/90">
+                {display}
+            </span>
+        </div>
+    );
 }
 
 export function SongDisplay({ song }: SongDisplayProps) {
     const router = useRouter();
-    const token = Cookies.get('token');
     const { toast } = useToast();
-    const queryClient = useQueryClient();
-    const locallyStoredPinnedSongs = Cookies.get('pinnedSongs');
     const { onOpen, setData, setEdit } = useAddSongModal();
     const [tabs] = useSongs();
     const { onOpen: openDeleteModal } = useDeleteModal();
-    const userId = Cookies.get('userId');
-    const isAdmin = Cookies.get('isAdmin') === 'true';
+    const dispatch = useDispatch();
+
+    // Redux State & Hooks
+    const { isAuthenticated, user, isAdmin } = useSelector(
+        (state: RootState) => state.auth
+    );
+    const { data: pinsRes } = useGetPinnedSongsQuery(undefined, {
+        skip: !isAuthenticated,
+    });
+    const [pinSong, { isLoading: isPinning }] = usePinSongMutation();
+    const [unpinSong, { isLoading: isUnpinning }] = useUnpinSongMutation();
+    const [approveSong, { isLoading: isApproving }] = useApproveSongMutation();
+    const [rejectSong, { isLoading: isRejecting }] = useRejectSongMutation();
+
+    const isSongPinned = (songId: string) => {
+        if (!isAuthenticated || !pinsRes?.data) return false;
+        return pinsRes.data.some(
+            (pinnedSong: any) => pinnedSong.song_id === songId
+        );
+    };
 
     const handleLogout = () => {
-        Cookies.remove('token');
-        Cookies.remove('userId');
-        Cookies.remove('isAdmin');
+        dispatch(logout());
         router.refresh();
     };
 
-    const handleAddToFavourites = async () => {
-        let payload = {
-            isPinned: !song?.isPinned,
-        };
-        if (token) {
-            await addToFavourites(song?._id as string, payload).then(() =>
-                getAllSongs()
-            );
-        } else {
-            await addToFavouritesToLocalStorage({
-                _id: song?._id,
-                isPinned: !song?.isPinned,
+    const handleTogglePin = async () => {
+        if (!isAuthenticated || !song) {
+            toast({
+                title: 'Please sign in to pin songs',
+                variant: 'destructive',
             });
+            return;
         }
 
-        toast({
-            title: payload.isPinned
-                ? 'Added to favourites'
-                : 'Removed from favourites',
-        });
-        await queryClient.invalidateQueries({
-            queryKey: ['songs'],
-        });
+        try {
+            const currentlyPinned = isSongPinned(song.song_id);
+            if (currentlyPinned) {
+                await unpinSong(song.song_id).unwrap();
+                toast({ title: 'Removed from favourites' });
+            } else {
+                await pinSong(song.song_id).unwrap();
+                toast({ title: 'Added to favourites' });
+            }
+        } catch (error) {
+            toast({
+                title: 'Failed to update favourites',
+                variant: 'destructive',
+            });
+        }
     };
 
     const handleLogin = () => {
-        router.push('/login');
+        router.push('/sign-in');
     };
 
     const handleEditModal = () => {
-        setData({
-            ...(song as SongSchema),
-            lyrics: JSON.parse(song?.lyrics as any),
-        });
+        if (!song) return;
+        try {
+            const parsedLyrics = song.lyrics.startsWith('"')
+                ? JSON.parse(song.lyrics)
+                : song.lyrics;
+            setData({
+                ...song,
+                lyrics: parsedLyrics,
+            });
+        } catch {
+            setData({ ...song });
+        }
         setEdit(true);
         onOpen();
     };
@@ -99,57 +145,61 @@ export function SongDisplay({ song }: SongDisplayProps) {
 
     const handleApprove = async () => {
         try {
-            const response = await approveSong(song?._id as any);
-
-            if (response.status === 'ok') {
-                toast({
-                    title: 'Song approved successfully',
-                    variant: 'default',
-                });
-                await queryClient.invalidateQueries({
-                    queryKey: ['requests', 'songs'],
-                });
-            }
+            await approveSong(song.song_id).unwrap();
+            toast({ title: 'Song approved successfully' });
         } catch (error) {
-            toast({
-                title: 'Oops! Something went wrong 💔',
-                variant: 'destructive',
-            });
+            toast({ title: 'Failed to approve song', variant: 'destructive' });
+        }
+    };
+
+    const handleReject = async () => {
+        try {
+            await rejectSong(song.song_id).unwrap();
+            toast({ title: 'Song rejected' });
+        } catch (error) {
+            toast({ title: 'Failed to reject song', variant: 'destructive' });
         }
     };
 
     return (
-        <div className="flex h-full flex-col">
-            <div className="flex items-center p-2">
+        <div className="flex h-full flex-col bg-card/40">
+            <div className="flex items-center p-2 backdrop-blur-sm sticky top-0 z-10 border-b border-border/50">
                 <div className="flex items-center gap-2">
                     <Tooltip>
                         {tabs.currentTab.value !== 'my-songs' && (
                             <TooltipTrigger asChild>
                                 <Button
-                                    onClick={handleAddToFavourites}
+                                    onClick={handleTogglePin}
                                     variant="ghost"
                                     size="icon"
-                                    disabled={!song}
+                                    disabled={
+                                        !song ||
+                                        !isAuthenticated ||
+                                        isPinning ||
+                                        isUnpinning
+                                    }
+                                    className="hover:bg-accent hover:text-accent-foreground transition-colors"
                                 >
-                                    <>
-                                        {isSongPinned(song as SongSchema) ? (
-                                            <HeartIcon
-                                                fill="red"
-                                                className="h-5 w-5"
-                                            />
-                                        ) : (
-                                            <HeartIcon className="h-5 w-5" />
-                                        )}
-                                        <span className="sr-only">
-                                            Add to favourites
-                                        </span>
-                                    </>
+                                    {isPinning || isUnpinning ? (
+                                        <Loader2 className="h-5 w-5 animate-spin" />
+                                    ) : isSongPinned(song?.song_id) ? (
+                                        <HeartIcon
+                                            fill="currentColor"
+                                            className="h-5 w-5 text-destructive"
+                                        />
+                                    ) : (
+                                        <HeartIcon className="h-5 w-5" />
+                                    )}
+                                    <span className="sr-only">
+                                        Add to favourites
+                                    </span>
                                 </Button>
                             </TooltipTrigger>
                         )}
-                        <TooltipContent> Add to favourites</TooltipContent>
+                        <TooltipContent>Add to favourites</TooltipContent>
                     </Tooltip>
-                    {(isAdmin || userId === song?.user_id) && (
+
+                    {(isAdmin || user?.user_id === song?.user_id) && song && (
                         <>
                             <Tooltip>
                                 <TooltipTrigger asChild>
@@ -157,154 +207,179 @@ export function SongDisplay({ song }: SongDisplayProps) {
                                         onClick={handleEditModal}
                                         variant="ghost"
                                         size="icon"
-                                        disabled={!song}
                                     >
-                                        <>
-                                            <Edit className="h-5 w-5" />
-                                            <span className="sr-only">
-                                                Edit
-                                            </span>
-                                        </>
+                                        <Edit className="h-5 w-5" />
+                                        <span className="sr-only">Edit</span>
                                     </Button>
                                 </TooltipTrigger>
-                                <TooltipContent> Edit</TooltipContent>
+                                <TooltipContent>Edit</TooltipContent>
                             </Tooltip>
+
                             {isAdmin &&
                                 tabs.currentTab.value === 'requests' && (
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button
-                                                onClick={handleApprove}
-                                                variant="ghost"
-                                                size="icon"
-                                                disabled={!song}
-                                            >
-                                                <>
-                                                    <CheckIcon className="text-[#47B881] h-5 w-5" />
+                                    <>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    onClick={handleApprove}
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    disabled={
+                                                        isApproving ||
+                                                        isRejecting
+                                                    }
+                                                >
+                                                    {isApproving ? (
+                                                        <Loader2 className="h-5 w-5 text-emerald-500 animate-spin" />
+                                                    ) : (
+                                                        <CheckIcon className="text-emerald-500 h-5 w-5" />
+                                                    )}
                                                     <span className="sr-only">
                                                         Approve
                                                     </span>
-                                                </>
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Approve</TooltipContent>
-                                    </Tooltip>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                Approve
+                                            </TooltipContent>
+                                        </Tooltip>
+
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    onClick={handleReject}
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    disabled={
+                                                        isApproving ||
+                                                        isRejecting
+                                                    }
+                                                >
+                                                    {isRejecting ? (
+                                                        <Loader2 className="h-5 w-5 text-destructive animate-spin" />
+                                                    ) : (
+                                                        <X
+                                                            className="h-5 w-5 text-destructive"
+                                                            strokeWidth={2}
+                                                        />
+                                                    )}
+                                                    <span className="sr-only">
+                                                        Decline
+                                                    </span>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                Decline
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </>
                                 )}
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        onClick={handleDeleteModal}
-                                        variant="ghost"
-                                        size="icon"
-                                        disabled={!song}
-                                    >
-                                        {isAdmin &&
-                                        tabs.currentTab.value === 'requests' ? (
-                                            <>
-                                                <X
-                                                    strokeWidth={'2'}
-                                                    className="h-5 w-5 text-red-700"
-                                                />
-                                                <span className="sr-only">
-                                                    Decline
-                                                </span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Trash2
-                                                    strokeWidth={'2'}
-                                                    className="h-5 w-5 text-red-700"
-                                                />
-                                                <span className="sr-only">
-                                                    Delete
-                                                </span>
-                                            </>
-                                        )}
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    {isAdmin ? 'Decline' : 'Delete'}
-                                </TooltipContent>
-                            </Tooltip>
+
+                            {(!isAdmin ||
+                                tabs.currentTab.value !== 'requests') && (
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            onClick={handleDeleteModal}
+                                            variant="ghost"
+                                            size="icon"
+                                        >
+                                            <Trash2
+                                                strokeWidth={2}
+                                                className="h-5 w-5 text-destructive"
+                                            />
+                                            <span className="sr-only">
+                                                Delete
+                                            </span>
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Delete</TooltipContent>
+                                </Tooltip>
+                            )}
                         </>
                     )}
                 </div>
-                <div className="ml-auto flex items-center gap-2" />
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        {token ? (
-                            <Button
-                                onClick={handleLogout}
-                                variant="destructive"
-                                size="icon"
-                            >
-                                <LogOut className="h-4 w-4" />
-                                <span className="sr-only">Log out</span>
-                            </Button>
-                        ) : (
-                            <Button
-                                onClick={handleLogin}
-                                variant="ghost"
-                                size="icon"
-                            >
-                                <LogIn className="h-4 w-4" />
-                                <span className="sr-only">Log in</span>
-                            </Button>
-                        )}
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        {token ? 'Log out' : 'Log in'}
-                    </TooltipContent>
-                </Tooltip>
+
+                <div className="ml-auto flex items-center gap-2">
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            {isAuthenticated ? (
+                                <Button
+                                    onClick={handleLogout}
+                                    variant="destructive"
+                                    size="icon"
+                                >
+                                    <LogOut className="h-4 w-4" />
+                                    <span className="sr-only">Log out</span>
+                                </Button>
+                            ) : (
+                                <Button
+                                    onClick={handleLogin}
+                                    variant="default"
+                                    size="icon"
+                                    className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md shadow-primary/20"
+                                >
+                                    <LogIn className="h-4 w-4" />
+                                    <span className="sr-only">Log in</span>
+                                </Button>
+                            )}
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            {isAuthenticated ? 'Log out' : 'Log in'}
+                        </TooltipContent>
+                    </Tooltip>
+                </div>
             </div>
-            <Separator />
+
             {song ? (
-                <div className="flex h-[90%] flex-col">
-                    <div className="flex items-start p-4">
-                        <div className="flex items-start gap-4 text-sm">
-                            <div className="grid gap-1">
-                                <div className="font-semibold">
+                <div className="flex h-full flex-col overflow-hidden">
+                    <div className="flex items-start p-6 bg-gradient-to-b from-primary/5 to-transparent border-b border-border/30 shadow-sm">
+                        <div className="flex flex-col gap-3 w-full">
+                            <div className="flex justify-between items-start w-full">
+                                <h2 className="text-3xl font-extrabold tracking-tight text-foreground/90">
                                     {song.title}
-                                </div>
-                                <div className="line-clamp-1 text-xs">
-                                    {song.title}
-                                </div>
-                                <div className="line-clamp-1 text-xs">
-                                    <div className="flex items-center mt-1 gap-2">
-                                        <Badge variant={'default'}>
-                                            {song.beat}
-                                        </Badge>
-                                        <Badge variant={'default'}>
-                                            {song.language}
-                                        </Badge>
-                                        <Badge variant={'default'}>
-                                            T-{song.tempo}
-                                        </Badge>
-                                        <Badge variant={'default'}>
-                                            {song.style}
-                                        </Badge>
-                                        <Badge variant={'default'}>
-                                            {song.scale}
-                                        </Badge>
+                                </h2>
+                                {song.created_at && (
+                                    <div className="text-xs text-muted-foreground whitespace-nowrap bg-muted px-2 py-1 rounded-md border border-border/50">
+                                        {format(
+                                            new Date(song.created_at),
+                                            'PPP'
+                                        )}
                                     </div>
-                                </div>
+                                )}
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2 mt-2">
+                                <InfoBadge label="Key" value={song.scale} />
+                                <InfoBadge label="Time" value={song.beat} />
+                                <InfoBadge label="Tempo" value={song.tempo} />
+                                <InfoBadge label="Genre" value={song.style} />
+                                <InfoBadge label="Lang" value={song.language} />
+                                <InfoBadge
+                                    label="Inst"
+                                    value={song.keyboard_modal}
+                                />
                             </div>
                         </div>
-                        {song.createdAt && (
-                            <div className="ml-auto text-xs text-muted-foreground">
-                                {format(new Date(song.createdAt), 'PPpp')}
-                            </div>
-                        )}
                     </div>
-                    <Separator />
-                    <ScrollArea className="h-[100%] whitespace-pre-wrap p-4 text-sm">
-                        {JSON.parse(song?.lyrics)}
+
+                    <ScrollArea className="flex-1 p-6 text-base md:text-lg">
+                        <div className="mx-auto w-fit pb-20">
+                            <ChordLyricsRenderer
+                                fontSize={18}
+                                content={
+                                    song.lyrics?.startsWith('"')
+                                        ? JSON.parse(song.lyrics)
+                                        : song.lyrics || ''
+                                }
+                            />
+                        </div>
                     </ScrollArea>
                 </div>
             ) : (
                 <EmptyPlaceholder
                     title="No song selected"
-                    description="Please select a song to display"
+                    description="Please select a song from the list to display"
                 />
             )}
         </div>
