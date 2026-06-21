@@ -57,15 +57,19 @@ const FONT_SIZES = {
 };
 
 /** Renders a single line that has both chords and lyrics inline */
-function LyricsLine({ line, size }: { line: string; size: FontSize }) {
+function LyricsLine({ line, size, showChords = true }: { line: string; size: FontSize; showChords?: boolean }) {
     const segments = parseLyricsLine(line);
     const hasChords = segments.some((s) => s.type === 'chord');
     const classes = FONT_SIZES[size];
 
-    if (!hasChords) {
+    if (!hasChords || !showChords) {
+        const cleanText = segments
+            .filter((s) => s.type === 'text')
+            .map((s) => s.value)
+            .join('');
         return (
             <div className={cn('leading-relaxed text-foreground/80 whitespace-pre-wrap', classes.lyric)}>
-                {line || '\u00A0'}
+                {cleanText || '\u00A0'}
             </div>
         );
     }
@@ -115,6 +119,7 @@ interface ChordLyricsRendererProps {
     content: string;
     className?: string;
     fontSize?: FontSize | number;
+    showChords?: boolean;
 }
 
 /** Main renderer: parses the full AI response and formats it cleanly */
@@ -122,6 +127,7 @@ export function ChordLyricsRenderer({
     content,
     className,
     fontSize = 'sm',
+    showChords = true,
 }: ChordLyricsRendererProps) {
     const lines = content.split('\n');
     
@@ -180,8 +186,64 @@ export function ChordLyricsRenderer({
                     );
                 }
 
-                return <LyricsLine key={i} line={line} size={size} />;
+                return <LyricsLine key={i} line={line} size={size} showChords={showChords} />;
             })}
         </div>
     );
+}
+
+export function formatChordLyricsForCopy(content: string, showChords: boolean): string {
+    const lines = content.split('\n');
+    const resultLines: string[] = [];
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) {
+            resultLines.push('');
+            continue;
+        }
+
+        if (
+            /^\[?(verse|chorus|bridge|pre-?chorus|outro|intro|interlude|tag|hook)\b/i.test(trimmed) ||
+            /^(title|key|scale|time signature|tempo|genre|language|instrument|beat|style)\s*:/i.test(trimmed)
+        ) {
+            resultLines.push(line);
+            continue;
+        }
+
+        const parts = line.split(/(\[[^\]]+\])/g);
+
+        if (!showChords) {
+            const cleanLine = parts
+                .filter((p) => !(p.startsWith('[') && p.endsWith(']')))
+                .join('');
+            resultLines.push(cleanLine);
+            continue;
+        }
+
+        let chordsLine = '';
+        let lyricsLine = '';
+
+        for (const part of parts) {
+            if (part.startsWith('[') && part.endsWith(']')) {
+                const chordName = part.slice(1, -1);
+                if (chordsLine.length < lyricsLine.length) {
+                    chordsLine += ' '.repeat(lyricsLine.length - chordsLine.length);
+                }
+                if (chordsLine.length > 0 && chordsLine.length === lyricsLine.length) {
+                    chordsLine += ' ';
+                }
+                chordsLine += chordName;
+            } else {
+                lyricsLine += part;
+            }
+        }
+
+        if (chordsLine.trim()) {
+            resultLines.push(chordsLine);
+        }
+        resultLines.push(lyricsLine);
+    }
+
+    return resultLines.join('\n');
 }

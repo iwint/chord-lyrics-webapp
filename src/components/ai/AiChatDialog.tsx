@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Bot, Send, Mic, MicOff, Loader2, Save, Music2 } from 'lucide-react';
+import { Bot, Send, Mic, MicOff, Loader2, Save, Music2, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -17,7 +17,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store/store';
 import { cn } from '@/lib/utils';
 import useAddSongModal from '@/hooks/use-add-modal';
-import { ChordLyricsRenderer } from './ChordLyricsRenderer';
+import { ChordLyricsRenderer, formatChordLyricsForCopy } from './ChordLyricsRenderer';
 
 // ── Song Info Header ─────────────────────────────────────────────────────────
 
@@ -71,6 +71,7 @@ export function AiChatDialog({
 }) {
     const [input, setInput] = useState('');
     const [isListening, setIsListening] = useState(false);
+    const [showChords, setShowChords] = useState(true);
     const scrollRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
 
@@ -156,6 +157,29 @@ export function AiChatDialog({
                         </div>
                         <span className="font-bold text-lg tracking-tight">AI Lyrics Assistant</span>
                     </DialogTitle>
+
+                    {/* Chords Toggle */}
+                    <div className="flex items-center space-x-2 mr-6 select-none">
+                        <button
+                            role="switch"
+                            aria-checked={showChords}
+                            onClick={() => setShowChords(!showChords)}
+                            className={cn(
+                                "peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                                showChords ? "bg-primary" : "bg-input"
+                            )}
+                        >
+                            <span
+                                className={cn(
+                                    "pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform duration-200",
+                                    showChords ? "translate-x-4" : "translate-x-0"
+                                )}
+                            />
+                        </button>
+                        <span onClick={() => setShowChords(!showChords)} className="cursor-pointer text-xs font-semibold text-muted-foreground">
+                            Chords
+                        </span>
+                    </div>
                 </DialogHeader>
 
                 {/* ── Chat Area ── */}
@@ -195,11 +219,24 @@ export function AiChatDialog({
 
                                         {/* Chord lyrics — same column layout as mobile */}
                                         <div className="px-5 py-4 bg-background/50">
-                                            <ChordLyricsRenderer content={msg.content} />
+                                            <ChordLyricsRenderer content={msg.content} showChords={showChords} />
                                         </div>
 
-                                        {/* Save button */}
-                                        <div className="flex justify-end px-4 pb-4 pt-2 bg-background/50 border-t border-border/30">
+                                        {/* Save & Copy buttons */}
+                                        <div className="flex justify-end gap-2 px-4 pb-4 pt-2 bg-background/50 border-t border-border/30">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-8 text-xs font-bold gap-2 text-muted-foreground border-border/50 hover:bg-accent hover:text-foreground transition-all shadow-sm rounded-full px-4"
+                                                onClick={async () => {
+                                                    const formatted = formatChordLyricsForCopy(msg.content, showChords);
+                                                    await navigator.clipboard.writeText(formatted);
+                                                    toast({ title: 'Song copied to clipboard!' });
+                                                }}
+                                            >
+                                                <Copy className="h-3.5 w-3.5" />
+                                                Copy
+                                            </Button>
                                             <Button
                                                 variant="outline"
                                                 size="sm"
