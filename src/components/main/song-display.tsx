@@ -10,7 +10,9 @@ import {
     X,
     Loader2,
 } from 'lucide-react';
+import { useState } from 'react';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import useAddSongModal from '@/hooks/use-add-modal';
 import useDeleteModal from '@/hooks/use-delete-modal';
 import { useSongs } from '@/store/useSongs';
@@ -67,6 +69,7 @@ export function SongDisplay({ song }: SongDisplayProps) {
     const [tabs] = useSongs();
     const { onOpen: openDeleteModal } = useDeleteModal();
     const dispatch = useDispatch();
+    const [showChords, setShowChords] = useState(true);
 
     // Redux State & Hooks
     const { isAuthenticated, user, isAdmin } = useSelector(
@@ -300,7 +303,31 @@ export function SongDisplay({ song }: SongDisplayProps) {
                     )}
                 </div>
 
-                <div className="ml-auto flex items-center gap-2">
+                <div className="ml-auto flex items-center gap-4">
+                    {song && (
+                        <div className="flex items-center space-x-2 select-none mr-2">
+                            <button
+                                role="switch"
+                                aria-checked={showChords}
+                                onClick={() => setShowChords(!showChords)}
+                                className={cn(
+                                    "peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                                    showChords ? "bg-primary" : "bg-input"
+                                )}
+                            >
+                                <span
+                                    className={cn(
+                                        "pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform duration-200",
+                                        showChords ? "translate-x-4" : "translate-x-0"
+                                    )}
+                                />
+                            </button>
+                            <span onClick={() => setShowChords(!showChords)} className="cursor-pointer text-xs font-semibold text-muted-foreground">
+                                Chords
+                            </span>
+                        </div>
+                    )}
+
                     <Tooltip>
                         <TooltipTrigger asChild>
                             {isAuthenticated ? (
@@ -367,6 +394,7 @@ export function SongDisplay({ song }: SongDisplayProps) {
                         <div className="mx-auto w-fit pb-20">
                             <ChordLyricsRenderer
                                 fontSize={18}
+                                showChords={showChords}
                                 content={
                                     song.lyrics?.startsWith('"')
                                         ? JSON.parse(song.lyrics)

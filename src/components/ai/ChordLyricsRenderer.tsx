@@ -57,15 +57,19 @@ const FONT_SIZES = {
 };
 
 /** Renders a single line that has both chords and lyrics inline */
-function LyricsLine({ line, size }: { line: string; size: FontSize }) {
+function LyricsLine({ line, size, showChords = true }: { line: string; size: FontSize; showChords?: boolean }) {
     const segments = parseLyricsLine(line);
     const hasChords = segments.some((s) => s.type === 'chord');
     const classes = FONT_SIZES[size];
 
-    if (!hasChords) {
+    if (!hasChords || !showChords) {
+        const cleanText = segments
+            .filter((s) => s.type === 'text')
+            .map((s) => s.value)
+            .join('');
         return (
             <div className={cn('leading-relaxed text-foreground/80 whitespace-pre-wrap', classes.lyric)}>
-                {line || '\u00A0'}
+                {cleanText || '\u00A0'}
             </div>
         );
     }
@@ -115,6 +119,7 @@ interface ChordLyricsRendererProps {
     content: string;
     className?: string;
     fontSize?: FontSize | number;
+    showChords?: boolean;
 }
 
 /** Main renderer: parses the full AI response and formats it cleanly */
@@ -122,6 +127,7 @@ export function ChordLyricsRenderer({
     content,
     className,
     fontSize = 'sm',
+    showChords = true,
 }: ChordLyricsRendererProps) {
     const lines = content.split('\n');
     
@@ -180,7 +186,7 @@ export function ChordLyricsRenderer({
                     );
                 }
 
-                return <LyricsLine key={i} line={line} size={size} />;
+                return <LyricsLine key={i} line={line} size={size} showChords={showChords} />;
             })}
         </div>
     );
