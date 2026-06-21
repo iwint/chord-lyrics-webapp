@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Bot, Send, Mic, MicOff, Loader2, Save, Music2 } from 'lucide-react';
+import { Bot, Send, Mic, MicOff, Loader2, Save, Music2, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -17,7 +17,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store/store';
 import { cn } from '@/lib/utils';
 import useAddSongModal from '@/hooks/use-add-modal';
-import { ChordLyricsRenderer } from './ChordLyricsRenderer';
+import { ChordLyricsRenderer, formatChordLyricsForCopy } from './ChordLyricsRenderer';
 
 // ── Song Info Header ─────────────────────────────────────────────────────────
 
@@ -222,8 +222,21 @@ export function AiChatDialog({
                                             <ChordLyricsRenderer content={msg.content} showChords={showChords} />
                                         </div>
 
-                                        {/* Save button */}
-                                        <div className="flex justify-end px-4 pb-4 pt-2 bg-background/50 border-t border-border/30">
+                                        {/* Save & Copy buttons */}
+                                        <div className="flex justify-end gap-2 px-4 pb-4 pt-2 bg-background/50 border-t border-border/30">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-8 text-xs font-bold gap-2 text-muted-foreground border-border/50 hover:bg-accent hover:text-foreground transition-all shadow-sm rounded-full px-4"
+                                                onClick={async () => {
+                                                    const formatted = formatChordLyricsForCopy(msg.content, showChords);
+                                                    await navigator.clipboard.writeText(formatted);
+                                                    toast({ title: 'Song copied to clipboard!' });
+                                                }}
+                                            >
+                                                <Copy className="h-3.5 w-3.5" />
+                                                Copy
+                                            </Button>
                                             <Button
                                                 variant="outline"
                                                 size="sm"

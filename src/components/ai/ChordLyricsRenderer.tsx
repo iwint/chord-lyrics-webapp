@@ -191,3 +191,59 @@ export function ChordLyricsRenderer({
         </div>
     );
 }
+
+export function formatChordLyricsForCopy(content: string, showChords: boolean): string {
+    const lines = content.split('\n');
+    const resultLines: string[] = [];
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) {
+            resultLines.push('');
+            continue;
+        }
+
+        if (
+            /^\[?(verse|chorus|bridge|pre-?chorus|outro|intro|interlude|tag|hook)\b/i.test(trimmed) ||
+            /^(title|key|scale|time signature|tempo|genre|language|instrument|beat|style)\s*:/i.test(trimmed)
+        ) {
+            resultLines.push(line);
+            continue;
+        }
+
+        const parts = line.split(/(\[[^\]]+\])/g);
+
+        if (!showChords) {
+            const cleanLine = parts
+                .filter((p) => !(p.startsWith('[') && p.endsWith(']')))
+                .join('');
+            resultLines.push(cleanLine);
+            continue;
+        }
+
+        let chordsLine = '';
+        let lyricsLine = '';
+
+        for (const part of parts) {
+            if (part.startsWith('[') && part.endsWith(']')) {
+                const chordName = part.slice(1, -1);
+                if (chordsLine.length < lyricsLine.length) {
+                    chordsLine += ' '.repeat(lyricsLine.length - chordsLine.length);
+                }
+                if (chordsLine.length > 0 && chordsLine.length === lyricsLine.length) {
+                    chordsLine += ' ';
+                }
+                chordsLine += chordName;
+            } else {
+                lyricsLine += part;
+            }
+        }
+
+        if (chordsLine.trim()) {
+            resultLines.push(chordsLine);
+        }
+        resultLines.push(lyricsLine);
+    }
+
+    return resultLines.join('\n');
+}

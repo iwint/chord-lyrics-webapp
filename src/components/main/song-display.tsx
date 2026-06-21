@@ -9,6 +9,7 @@ import {
     Trash2,
     X,
     Loader2,
+    Copy,
 } from 'lucide-react';
 import { useState } from 'react';
 import { format } from 'date-fns';
@@ -22,7 +23,7 @@ import { ScrollArea } from '../ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { useToast } from '../ui/use-toast';
 import { EmptyPlaceholder } from './empty-placeholder';
-import { ChordLyricsRenderer } from '../ai/ChordLyricsRenderer';
+import { ChordLyricsRenderer, formatChordLyricsForCopy } from '../ai/ChordLyricsRenderer';
 
 // Redux
 import { useSelector, useDispatch } from 'react-redux';
@@ -322,9 +323,32 @@ export function SongDisplay({ song }: SongDisplayProps) {
                                     )}
                                 />
                             </button>
-                            <span onClick={() => setShowChords(!showChords)} className="cursor-pointer text-xs font-semibold text-muted-foreground">
+                            <span onClick={() => setShowChords(!showChords)} className="cursor-pointer text-xs font-semibold text-muted-foreground mr-2">
                                 Chords
                             </span>
+
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        onClick={async () => {
+                                            const formatted = formatChordLyricsForCopy(
+                                                song.lyrics?.startsWith('"')
+                                                    ? JSON.parse(song.lyrics)
+                                                    : song.lyrics || '',
+                                                showChords
+                                            );
+                                            await navigator.clipboard.writeText(formatted);
+                                            toast({ title: 'Song copied to clipboard!' });
+                                        }}
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 hover:bg-accent"
+                                    >
+                                        <Copy className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Copy to clipboard</TooltipContent>
+                            </Tooltip>
                         </div>
                     )}
 
