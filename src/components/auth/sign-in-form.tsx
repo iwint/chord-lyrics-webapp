@@ -22,7 +22,9 @@ export function SignInForm({ className, ...props }: SignInFormProps) {
 
     const [signIn, { isLoading }] = useSignInMutation();
 
-    async function onSubmit(formData: FormData) {
+    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
         const email = formData.get('email') as string;
         const password = formData.get('password') as string;
 
@@ -66,7 +68,7 @@ export function SignInForm({ className, ...props }: SignInFormProps) {
                 </p>
             </div>
             <div className={cn('grid gap-6', className)} {...props}>
-                <form action={onSubmit}>
+                <form onSubmit={handleSubmit}>
                     <div className="grid gap-4">
                         <div className="grid gap-1">
                             <Label className="sr-only" htmlFor="email">
@@ -104,10 +106,14 @@ export function SignInForm({ className, ...props }: SignInFormProps) {
                             disabled={isLoading}
                             className="bg-primary hover:bg-primary/90"
                         >
-                            {isLoading && (
-                                <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
+                            {isLoading ? (
+                                <>
+                                    <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
+                                    Signing in...
+                                </>
+                            ) : (
+                                'Sign in'
                             )}
-                            Sign in
                         </Button>
                     </div>
                 </form>

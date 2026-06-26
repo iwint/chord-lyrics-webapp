@@ -50,6 +50,7 @@ const AddSongForm: React.FC<SongFormProps> = () => {
             style: data.style,
             beat: data.beat,
             keyboard_modal: data.keyboardModal || data.keyboard_modal,
+            ai_message_id: data.ai_message_id,
         };
 
         try {
