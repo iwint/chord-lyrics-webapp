@@ -38,7 +38,9 @@ export function VerifyOtpForm({ className, ...props }: VerifyOtpFormProps) {
         }
     }, [router, toast]);
 
-    async function onSubmit(formData: FormData) {
+    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
         const otp = formData.get('otp') as string;
         if (!userId || !otp) return;
 
@@ -85,7 +87,7 @@ export function VerifyOtpForm({ className, ...props }: VerifyOtpFormProps) {
                 </p>
             </div>
             <div className={cn('grid gap-6', className)} {...props}>
-                <form action={onSubmit}>
+                <form onSubmit={handleSubmit}>
                     <div className="grid gap-4">
                         <div className="grid gap-1">
                             <Label className="sr-only" htmlFor="otp">
@@ -107,10 +109,14 @@ export function VerifyOtpForm({ className, ...props }: VerifyOtpFormProps) {
                             disabled={isLoading}
                             className="bg-primary hover:bg-primary/90"
                         >
-                            {isLoading && (
-                                <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
+                            {isLoading ? (
+                                <>
+                                    <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
+                                    Verifying...
+                                </>
+                            ) : (
+                                'Verify'
                             )}
-                            Verify
                         </Button>
                     </div>
                 </form>

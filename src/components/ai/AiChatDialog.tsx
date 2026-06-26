@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Bot, Send, Mic, MicOff, Loader2, Save, Music2, Copy } from 'lucide-react';
+import { Bot, Send, Mic, MicOff, Loader2, Save, Music2, Copy, AlertCircle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -11,7 +11,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useSearchLyricsMutation, useGetChatHistoryQuery } from '@/lib/store/api/aiChatApi';
+import { useSearchLyricsMutation, useGetChatHistoryQuery, useGetUsageStatusQuery } from '@/lib/store/api/aiChatApi';
 import { useToast } from '@/components/ui/use-toast';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store/store';
@@ -79,14 +79,22 @@ export function AiChatDialog({
     const { data: historyRes, refetch } = useGetChatHistoryQuery(undefined, {
         skip: !isAuthenticated || !open,
     });
+    const { data: usageRes, refetch: refetchUsage } = useGetUsageStatusQuery(undefined, {
+        skip: !isAuthenticated || !open,
+    });
     const [searchLyrics, { isLoading }] = useSearchLyricsMutation();
     const { onOpen: openAddModal, setData: setAddModalData, setEdit } = useAddSongModal();
 
     const messages = useMemo(() => historyRes?.data || [], [historyRes]);
+    const usageStatus = usageRes?.data;
+    const isAtLimit = usageStatus?.ai_restricted && usageStatus?.ai_usage_count >= usageStatus?.ai_usage_limit;
 
     useEffect(() => {
-        if (open) refetch();
-    }, [open, refetch]);
+        if (open) {
+            refetch();
+            refetchUsage();
+        }
+    }, [open, refetch, refetchUsage]);
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -99,8 +107,9 @@ export function AiChatDialog({
         setInput('');
         try {
             await searchLyrics({ query: text }).unwrap();
-        } catch {
-            toast({ title: 'AI failed to respond', variant: 'destructive' });
+        } catch (e: any) {
+            console.log(e);
+            toast({ title: e?.message || 'AI failed to respond', variant: 'destructive' });
         }
     };
 
@@ -117,8 +126,9 @@ export function AiChatDialog({
                       language: p.language,
                       keyboard_modal: p.keyboard_modal,
                       lyrics: p.lyrics,
+                      ai_message_id: msg.id,
                   }
-                : ({ lyrics: msg.content } as any),
+                : ({ lyrics: msg.content, ai_message_id: msg.id } as any),
         );
         setEdit(false);
         openAddModal();
@@ -182,6 +192,25 @@ export function AiChatDialog({
                     </div>
                 </DialogHeader>
 
+                {/* ── Usage Warning ── */}
+                {usageStatus?.ai_restricted && (
+                    <div className={cn(
+                        "px-4 py-2 text-[12px] flex items-center gap-2 border-b",
+                        isAtLimit ? "bg-destructive/10 text-destructive border-destructive/20" : "bg-muted/50 text-muted-foreground border-border/40"
+                    )}>
+                        {isAtLimit ? (
+                            <AlertCircle className="w-4 h-4 shrink-0" />
+                        ) : (
+                            <Info className="w-4 h-4 shrink-0" />
+                        )}
+                        <div className="flex-1">
+                            {isAtLimit 
+                                ? `You have reached your monthly limit of ${usageStatus.ai_usage_limit} AI generations.`
+                                : `AI generations used this month: ${usageStatus.ai_usage_count} / ${usageStatus.ai_usage_limit}`}
+                        </div>
+                    </div>
+                )}
+
                 {/* ── Chat Area ── */}
                 <ScrollArea className="flex-1 bg-background/40" ref={scrollRef as any}>
                     <div className="flex flex-col gap-4 p-5">
@@ -240,11 +269,12 @@ export function AiChatDialog({
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                className="h-8 text-xs font-bold gap-2 text-primary border-primary/20 hover:bg-primary hover:text-primary-foreground transition-all shadow-sm rounded-full px-4"
+                                                disabled={msg.is_saved}
+                                                className="h-8 text-xs font-bold gap-2 text-primary border-primary/20 hover:bg-primary hover:text-primary-foreground transition-all shadow-sm rounded-full px-4 disabled:opacity-50"
                                                 onClick={() => handleSaveAsSong(msg)}
                                             >
                                                 <Save className="h-3.5 w-3.5" />
-                                                Save as Song
+                                                {msg.is_saved ? 'Saved' : 'Save as Song'}
                                             </Button>
                                         </div>
                                     </div>
@@ -293,13 +323,14 @@ export function AiChatDialog({
                                 handleSend(input);
                             }
                         }}
-                        placeholder="Ask AI for chords or lyrics..."
-                        className="flex-1 bg-muted/50 border-transparent hover:border-border focus-visible:ring-1 focus-visible:ring-primary rounded-full px-5 h-11 text-[15px] shadow-inner transition-all"
+                        placeholder={isAtLimit ? "Monthly AI limit reached" : "Ask AI for chords or lyrics..."}
+                        disabled={isAtLimit}
+                        className="flex-1 bg-muted/50 border-transparent hover:border-border focus-visible:ring-1 focus-visible:ring-primary rounded-full px-5 h-11 text-[15px] shadow-inner transition-all disabled:opacity-50"
                     />
 
                     <Button
                         onClick={() => handleSend(input)}
-                        disabled={!input.trim() || isLoading}
+                        disabled={!input.trim() || isLoading || isAtLimit}
                         size="icon"
                         className="shrink-0 rounded-full h-11 w-11 bg-gradient-to-br from-primary to-primary/90 hover:opacity-90 shadow-md transition-all disabled:opacity-50"
                     >
