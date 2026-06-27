@@ -10,7 +10,7 @@ import { Label } from '../ui/label';
 import { useToast } from '../ui/use-toast';
 import { useDispatch } from 'react-redux';
 import { setCredentials } from '@/lib/store/slices/authSlice';
-import { useVerifyOtpMutation } from '@/lib/store/api/authApi';
+import { useVerifyOtpMutation, useResendOtpMutation } from '@/lib/store/api/authApi';
 import Link from 'next/link';
 import Cookies from 'js-cookie';
 
@@ -23,6 +23,31 @@ export function VerifyOtpForm({ className, ...props }: VerifyOtpFormProps) {
     const dispatch = useDispatch();
 
     const [verifyOtp, { isLoading }] = useVerifyOtpMutation();
+    const [resendOtp, { isLoading: isResending }] = useResendOtpMutation();
+    const [countdown, setCountdown] = React.useState(0);
+
+    React.useEffect(() => {
+        let timer: any;
+        if (countdown > 0) {
+            timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+        }
+        return () => clearTimeout(timer);
+    }, [countdown]);
+
+    async function handleResend() {
+        if (!userId || countdown > 0 || isResending) return;
+        try {
+            await resendOtp({ user_id: userId }).unwrap();
+            toast({ title: 'OTP resent successfully!' });
+            setCountdown(60);
+        } catch (err: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Failed to resend OTP',
+                description: err?.data?.message || 'Please try again',
+            });
+        }
+    }
 
     React.useEffect(() => {
         const id = Cookies.get('pending_user_id');
@@ -120,6 +145,20 @@ export function VerifyOtpForm({ className, ...props }: VerifyOtpFormProps) {
                         </Button>
                     </div>
                 </form>
+                <div className="flex items-center justify-between px-1 text-sm text-muted-foreground">
+                    <span>Didn't receive the code?</span>
+                    <button
+                        type="button"
+                        onClick={handleResend}
+                        disabled={countdown > 0 || isResending}
+                        className={cn(
+                            "font-semibold hover:underline disabled:no-underline disabled:opacity-50",
+                            countdown > 0 || isResending ? "text-muted-foreground" : "text-primary"
+                        )}
+                    >
+                        {countdown > 0 ? `Resend in ${countdown}s` : 'Resend Code'}
+                    </button>
+                </div>
             </div>
         </div>
     );
