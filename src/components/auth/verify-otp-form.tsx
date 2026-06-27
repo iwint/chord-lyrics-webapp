@@ -146,7 +146,7 @@ export function VerifyOtpForm({ className, ...props }: VerifyOtpFormProps) {
                     </div>
                 </form>
                 <div className="flex items-center justify-between px-1 text-sm text-muted-foreground">
-                    <span>Didn't receive the code?</span>
+                    <span>Didn&apos;t receive the code?</span>
                     <button
                         type="button"
                         onClick={handleResend}
