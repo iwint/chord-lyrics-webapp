@@ -1,5 +1,6 @@
 import MainPage from '@/components/main';
 import { AiChatFab } from '@/components/ai/AiChatFab';
+import { AiPromoBanner } from '@/components/ai/AiPromoBanner';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -9,9 +10,12 @@ export const metadata: Metadata = {
 
 export default function Main() {
     return (
-        <>
-            <MainPage />
-            <AiChatFab />
-        </>
+        <div className="flex flex-col h-screen">
+            <AiPromoBanner />
+            <div className="flex-1 overflow-hidden relative">
+                <MainPage />
+                <AiChatFab />
+            </div>
+        </div>
     );
 }

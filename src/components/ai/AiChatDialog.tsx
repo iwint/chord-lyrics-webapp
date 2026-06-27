@@ -73,6 +73,7 @@ export function AiChatDialog({
     const [isListening, setIsListening] = useState(false);
     const [showChords, setShowChords] = useState(true);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const recognitionRef = useRef<any>(null);
     const { toast } = useToast();
 
     const { isAuthenticated } = useSelector((state: RootState) => state.auth);
@@ -140,10 +141,15 @@ export function AiChatDialog({
             toast({ title: 'Voice input not supported in your browser', variant: 'destructive' });
             return;
         }
-        if (isListening) { setIsListening(false); return; }
+        if (isListening) { 
+            setIsListening(false); 
+            if (recognitionRef.current) recognitionRef.current.stop();
+            return; 
+        }
 
         const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         const recognition = new SR();
+        recognitionRef.current = recognition;
         recognition.continuous = false;
         recognition.interimResults = false;
         recognition.onstart = () => setIsListening(true);
@@ -151,9 +157,26 @@ export function AiChatDialog({
             setInput((prev) => prev + (prev ? ' ' : '') + e.results[0][0].transcript);
             setIsListening(false);
         };
-        recognition.onerror = () => setIsListening(false);
+        recognition.onerror = (event: any) => {
+            console.error('Speech recognition error', event.error);
+            setIsListening(false);
+            if (event.error === 'not-allowed') {
+                toast({ title: 'Microphone permission blocked. Please enable it in browser settings.', variant: 'destructive' });
+            } else if (event.error === 'no-speech') {
+                toast({ title: 'No speech was detected. Please try again.', variant: 'destructive' });
+            } else if (event.error === 'network') {
+                toast({ 
+                    title: 'Speech Recognition Network Error', 
+                    description: 'Chromium-based browsers (like Brave or custom builds) require connection to Google speech servers, which may be blocked. Please type your query or try a different browser.', 
+                    variant: 'destructive' 
+                });
+            } else {
+                toast({ title: `Speech recognition error: ${event.error}`, variant: 'destructive' });
+            }
+        };
         recognition.onend = () => setIsListening(false);
         recognition.start();
+        setIsListening(true);
     };
 
     return (
@@ -204,7 +227,7 @@ export function AiChatDialog({
                             <Info className="w-4 h-4 shrink-0" />
                         )}
                         <div className="flex-1">
-                            {isAtLimit 
+                            {isAtLimit
                                 ? `You have reached your monthly limit of ${usageStatus.ai_usage_limit} AI generations.`
                                 : `AI generations used this month: ${usageStatus.ai_usage_count} / ${usageStatus.ai_usage_limit}`}
                         </div>
@@ -308,10 +331,20 @@ export function AiChatDialog({
                         variant={isListening ? 'destructive' : 'outline'}
                         size="icon"
                         onClick={toggleListening}
-                        className={cn('shrink-0 rounded-full h-11 w-11 transition-all', isListening ? 'animate-pulse shadow-lg shadow-destructive/30' : 'hover:bg-primary/5')}
+                        className={cn(
+                            'shrink-0 rounded-full h-11 w-11 transition-all duration-300 relative',
+                            isListening ? 'shadow-[0_0_15px_rgba(239,68,68,0.4)] bg-destructive hover:bg-destructive/90 text-destructive-foreground border-destructive' : 'hover:bg-primary/5 border-border/50'
+                        )}
                         type="button"
                     >
-                        {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5 text-primary" />}
+                        {isListening ? (
+                            <>
+                                <span className="absolute inset-0 rounded-full animate-ping bg-destructive/40 opacity-75" />
+                                <div className="w-3 h-3 bg-current rounded-[2px] relative z-10" />
+                            </>
+                        ) : (
+                            <Mic className="h-5 w-5 text-primary" />
+                        )}
                     </Button>
 
                     <Input
@@ -323,8 +356,14 @@ export function AiChatDialog({
                                 handleSend(input);
                             }
                         }}
-                        placeholder={isAtLimit ? "Monthly AI limit reached" : "Ask AI for chords or lyrics..."}
-                        disabled={isAtLimit}
+                        placeholder={
+                            isListening 
+                                ? "Listening to your voice..." 
+                                : isAtLimit 
+                                ? "Monthly AI limit reached" 
+                                : "Ask AI for chords or lyrics..."
+                        }
+                        disabled={isAtLimit || isListening}
                         className="flex-1 bg-muted/50 border-transparent hover:border-border focus-visible:ring-1 focus-visible:ring-primary rounded-full px-5 h-11 text-[15px] shadow-inner transition-all disabled:opacity-50"
                     />
 
